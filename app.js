@@ -121,7 +121,8 @@
       const list = LT.UNIT_STEPS;
       list.forEach((k, i) => {
         const s = u.steps[k];
-        const cls = 'step-chip ' + (curUnitStep === k ? 'cur ' : '') + (s.status === 'done' ? 'ok' : (docOf(s) ? '' : 'lock'));
+        const cls = 'step-chip ' + (curUnitStep === k ? 'cur ' : '')
+          + (s.status === 'stale' ? 'stale-step' : (s.status === 'done' ? 'ok' : (docOf(s) || (k === 'draft' && (s.parts || []).some(Boolean)) ? '' : 'lock')));
         const c = el('button', cls);
         c.appendChild(el('span', 'dot'));
         c.appendChild(el('span', '', (i + 1) + ' ' + LT.UNIT_STEP_NAME[k]));
@@ -136,6 +137,7 @@
 
   /* ---------- 主渲染 ---------- */
   function render() {
+    syncCur();
     if (cur) Books.migrateBook(cur);
     renderTop();
     renderSteps();
@@ -274,6 +276,18 @@
     render();
   }
 
+  /* 内存里的 cur 与 localStorage 里的当前书脱节时，重新对齐。
+     （页面恢复、外部改存储、多标签页等场景） */
+  function syncCur() {
+    const id = Books.currentId();
+    if (!id) return false;
+    if (!cur || cur.id !== id) {
+      const b = Books.get(id);
+      if (b) { cur = b; return true; }
+    }
+    return false;
+  }
+
   function nextUnitStep(u) {
     const order = LT.UNIT_STEPS;
     for (const k of order) {
@@ -407,7 +421,7 @@
     setCurStep(k) { curStep = k; },
     get curUnitStep() { return curUnitStep; },
     setCurUnitStep(k) { curUnitStep = k; },
-    curUnit, docOf, setStream, endStream, persist, fmtTime, openBook, nextUnitStep
+    curUnit, docOf, setStream, endStream, persist, fmtTime, openBook, nextUnitStep, syncCur
   };
 
   /* 启动渲染 */
