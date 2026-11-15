@@ -6,6 +6,27 @@
   const stage = A.stage;
   function cur() { return A.cur; }
 
+  /* 上游环节重新生成后，把下游环节标记为「需重做」。
+     不清空已有内容，只是提示：这些内容是基于旧的上游写的。 */
+  function markDownstreamStale(u, fromStep) {
+    const order = LT.UNIT_STEPS;
+    const i = order.indexOf(fromStep);
+    if (i < 0) return [];
+    const touched = [];
+    order.slice(i + 1).forEach(k => {
+      const s = u.steps[k];
+      if (!s) return;
+      const has = k === 'draft'
+        ? (s.parts || []).some(Boolean)
+        : !!(s.versions && s.versions[s.sel]);
+      if (has && s.status !== 'stale') {
+        s.status = 'stale';
+        touched.push(LT.UNIT_STEP_NAME[k]);
+      }
+    });
+    return touched;
+  }
+
   /* ================= 分节正文 ================= */
   function renderDraft(b, u) {
     const d = u.steps.draft;
@@ -210,13 +231,18 @@
         A.setStream(full); A.updateDock();
       }, ctrl.signal);
       if (!out || !String(out).trim()) throw new Error('返回为空，可能被截断了');
+      const isFirstDraft = !(s.versions && s.versions.length);
       s.versions.push({ text: String(out).trim(), at: Date.now() });
       s.sel = s.versions.length - 1;
       s.status = 'ready';
+      /* 重新生成上游：把下游标记成需重做（内容保留，不清空） */
+      const touched = markDownstreamStale(u, key);
       Books.save(b);
       A.setBusy(null);
       A.render();
-      A.toast('已生成');
+      A.toast(touched.length
+        ? '已生成。下游「' + touched.join('、') + '」是旧的，建议重新生成'
+        : '已生成');
     } catch (e) {
       A.setBusy(null); A.endStream(); A.render();
       if (e.name !== 'AbortError') alert('生成失败：' + e.message);
