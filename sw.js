@@ -1,4 +1,4 @@
-const CACHE = 'll-v5';
+const CACHE = 'll-v6';
 const ASSETS = [
   './', './index.html', './style.css', './style2.css', './ll.css',
   './store.js', './bookstore.js', './lprompts.js', './api.js', './lengine.js', './lcheck.js',
