@@ -33,6 +33,15 @@
     if (s.versions.length > 1) card.appendChild(BOOKUI.versionTabs(s, () => A.render()));
 
     const box = el('div', 'card');
+    /* 上游改过、这一步还是旧内容 → 提示但不清空 */
+    if (s.status === 'stale' && A.docOf(s)) {
+      const note = el('div', 'stale-note');
+      const txt = el('div', '', '上游环节重新生成过，这一步的内容是基于旧稿写的，建议重新生成。');
+      const act = el('button', 'act', '知道了，保留旧稿');
+      act.onclick = () => { s.status = 'ready'; A.persist(); A.render(); };
+      note.appendChild(txt); note.appendChild(act);
+      box.appendChild(note);
+    }
     const pre = el('div', 'doc');
     const text = A.docOf(s);
     pre.textContent = text || (A.busy ? '' : unitPlaceholder(A.curUnitStep, u));
