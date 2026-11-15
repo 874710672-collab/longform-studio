@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>长篇工坊</title>
+<meta name="theme-color" content="#141210">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="长篇工坊">
+<meta name="description" content="把35万字长篇拆成34个短篇单元逐个生产，交棒单保证连续性">
+<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style2.css?v=3">
+<link rel="stylesheet" href="ll.css?v=3">
+</head>
+<body>
+<header id="topbar">
+  <div class="tb-left">
+    <button class="icon-btn" id="btnHome" title="书库">☰</button>
+    <div class="tb-title">
+      <span id="tbProject">长篇工坊</span>
+      <small id="tbSub">选择或新建一本书</small>
+    </div>
+  </div>
+  <div class="tb-right">
+    <button class="ghost-btn" id="btnUnits" title="单元列表">▤ 单元</button>
+    <button class="ghost-btn" id="btnExport">导出</button>
+    <button class="icon-btn" id="btnSet" title="设置">⚙︎</button>
+  </div>
+</header>
+
+<nav id="steps"></nav>
+
+<main id="stage"></main>
+
+<footer id="dock">
+  <div class="dock-info" id="dockInfo">—</div>
+  <div class="dock-acts">
+    <button class="ghost-btn" id="btnStop" hidden>停止</button>
+    <button class="ghost-btn" id="btnRevise" title="带上原稿和意见，只改该改的地方">✎ 按意见改</button>
+    <button class="ghost-btn" id="btnRegen" title="不带原稿，重新生成一版">↻ 重新生成</button>
+    <button class="primary-btn" id="btnGen">生成</button>
+    <button class="primary-btn" id="btnApprove" hidden>通过 · 进入下一环节</button>
+  </div>
+</footer>
+
+<div id="sheet" class="sheet-mask" hidden>
+  <div class="sheet" id="sheetBody"></div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="store.js?v=3"></script>
+<script src="bookstore.js?v=3"></script>
+<script src="lprompts.js?v=3"></script>
+<script src="api.js?v=3"></script>
+<script src="lengine.js?v=3"></script>
+<script src="lcheck.js?v=3"></script>
+<script src="app.js?v=3"></script>
+<script src="appbook.js?v=3"></script>
+<script src="appunits.js?v=3"></script>
+<script src="appunit.js?v=3"></script>
+<script src="appflow.js?v=3"></script>
+</body>
+</html>
