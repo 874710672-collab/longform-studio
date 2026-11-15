@@ -2,6 +2,7 @@
 (function () {
   const A = window.APP;
   const el = A.el;
+  const toast = A.toast;
   const stage = A.stage;
   function cur() { return A.cur; }
 
@@ -338,13 +339,16 @@
       const s = b.steps[k];
       if (!A.docOf(s)) { A.toast('还没有内容'); return; }
       s.status = 'done';
-      /* 人物总表通过 → 让用户应用 */
+      /* 人物总表通过 → 自动写入硬事实表 */
       if (k === 'cast') {
         const r = LEngine.parseCast(A.docOf(s));
         if (r.people.length) {
           b.facts.people = r.people;
           if (r.world.length) b.facts.world = r.world;
-          A.toast('已导入 ' + r.people.length + ' 人');
+          b.steps.cast.status = 'done';
+          A.toast('已自动导入 ' + r.people.length + ' 人到硬事实表');
+        } else {
+          A.toast('没解析出人物，检查格式是否用「｜」分隔');
         }
       }
       const i = LT.BOOK_STEPS.indexOf(k);
@@ -388,9 +392,20 @@
       }
       if (!A.docOf(s)) { A.toast('还没有内容'); return; }
       s.status = 'done';
+      /* 出场配置通过 → 自动把新增人物写入硬事实表 */
       if (k === 'setting') {
-        const btn = document.querySelector('.primary-btn.wide');
-        /* 交给用户手动点「写入事实表」，这里只提示 */
+        const added = LEngine.parseNewPeople(A.docOf(s)).map(p => ({ name: p.name, gender: p.gender, age: p.age, role: p.role, voice: p.voice }));
+        let n = 0;
+        added.forEach(p => {
+          if (!p.name) return;
+          if ((b.facts.people || []).some(x => x.name === p.name)) return;
+          b.facts.people.push({
+            name: p.name, gender: p.gender, age: p.age, role: p.role,
+            voice: p.voice, firstUnit: u.idx + 1, status: ''
+          });
+          n++;
+        });
+        if (n) A.toast('已自动写入 ' + n + ' 个新人物');
       }
       if (k === 'relay') {
         UNITUI2.applyRelayNow(b, u, A.docOf(s));
