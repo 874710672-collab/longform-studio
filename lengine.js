@@ -194,7 +194,6 @@
       return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
     }
     if (key === 'spine') {
-      const mainUnits = mainUnits;
       const sideUnits = Math.max(4, Math.round(mainUnits * 0.25));
       const user = LP.fill(P.spine, {
         book: bookDoc(book, 'book'),
