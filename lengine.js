@@ -418,6 +418,30 @@
     return { people, world };
   }
 
+  /* 从「出场配置」里解析出本篇新增人物 */
+  function parseNewPeople(text) {
+    const added = [];
+    if (!text) return added;
+    const m = String(text).match(/【新增人物】([\s\S]*?)(?=【|$)/);
+    if (!m) return added;
+    m[1].split('\n').forEach(line => {
+      const s = line.trim().replace(/^[-·\d.、]\s*/, '');
+      if (!s || s === '无' || s.indexOf('｜') < 0) return;
+      const f = s.split(/[｜|]/);
+      const name = (f[0] || '').trim();
+      if (!name || name.length > 6) return;
+      added.push({
+        name,
+        gender: /女/.test(f[1] || '') ? '女' : (/男/.test(f[1] || '') ? '男' : ''),
+        age: (f[2] || '').replace(/岁/, '').trim(),
+        role: (f[3] || '').trim(),
+        rel: (f[4] || '').trim(),
+        voice: (f[5] || '').trim()
+      });
+    });
+    return added;
+  }
+
   /* 从主线推进表解析格子 */
   function parseSpine(text) {
     if (!text) return [];
@@ -622,7 +646,7 @@
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
     factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
-    parseCast, parseSpine, parseRelay, applyRelay,
+    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople,
     renumber, markStale, clearStale, buildUnitsFromSpine, totalWords
   };
 })();
