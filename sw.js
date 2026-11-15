@@ -1,9 +1,9 @@
-const CACHE = 'll-v2';
+const CACHE = 'll-v3';
 const ASSETS = [
   './', './index.html', './style.css', './style2.css', './ll.css',
   './store.js', './bookstore.js', './lprompts.js', './api.js', './lengine.js', './lcheck.js',
   './app.js', './appbook.js', './appunits.js', './appunit.js', './appflow.js',
-  './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'
+  './manifest.json', './icon-120.png', './icon-152.png', './icon-167.png', './icon-180.png', './icon-192.png', './icon-256.png', './icon-512.png', './icon-1024.png'
 ];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
