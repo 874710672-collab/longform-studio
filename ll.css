@@ -175,8 +175,7 @@
 /* 顶栏按钮 */
 #topbar .ghost-btn{font-size:12px;padding:6px 10px}
 
-/* ---------- 设置页开关 ---------- */
-.switch-row{display:flex;align-items:center;gap:9px;margin-top:12px}
+/* ---------- 设置页开关 ---------- */.switch-row{display:flex;align-items:center;gap:9px;margin-top:12px}
 .switch-row label{font-size:14px}
 .sw-box{display:inline-flex}
 .sw-box input{
@@ -189,4 +188,17 @@
 .sw-box input:checked::after{
   content:"✓";position:absolute;inset:0;display:grid;place-items:center;
   color:#1a1426;font-size:13px;font-weight:700;
+}
+
+/* ---------- 上游改动后：下游需重做 ---------- */
+.step-chip.stale-step{border-color:rgba(255,180,84,.55);color:#ffb454}
+.step-chip.stale-step .dot{background:var(--warn)}
+.stale-note{
+  margin-top:10px;padding:9px 11px;border-radius:10px;font-size:12px;line-height:1.7;
+  background:rgba(255,180,84,.09);border:1px solid rgba(255,180,84,.32);color:#ffd39a;
+  display:flex;gap:8px;align-items:flex-start;justify-content:space-between;
+}
+.stale-note .act{
+  flex:0 0 auto;font-size:11px;padding:3px 8px;border-radius:6px;
+  border:1px solid rgba(255,180,84,.5);color:#ffb454;
 }
