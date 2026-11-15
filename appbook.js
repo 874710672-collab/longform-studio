@@ -152,6 +152,15 @@
     const info = el('div', 'hint');
     info.textContent = `规划：${b.units.length} 篇 · 合计 ${(LEngine.totalWords(b) / 10000).toFixed(1)} 万字（目标 ${(b.target / 10000).toFixed(0)} 万）`;
     body.appendChild(info);
+
+    /* 跳转入口 */
+    const nav = el('div', 'list-acts');
+    const bf = el('button', 'mini', '◉ 事实表');
+    bf.onclick = () => { A.setView('facts'); A.render(); };
+    const bu = el('button', 'mini', '▤ 单元列表');
+    bu.onclick = () => { A.setView('units'); A.render(); };
+    nav.appendChild(bf); nav.appendChild(bu);
+    body.appendChild(nav);
     return c;
   }
 
