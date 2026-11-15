@@ -35,12 +35,17 @@
     top.appendChild(stat);
 
     const bar = el('div', 'list-acts');
+    const bbook = el('button', 'mini', '◈ 全书层');
+    bbook.onclick = () => { A.setView('book'); A.render(); };
+    const bfacts = el('button', 'mini', '◉ 事实表');
+    bfacts.onclick = () => { A.setView('facts'); A.render(); };
     const bn = el('button', 'mini on', '＋ 新建单元');
     bn.onclick = () => addUnit(b);
     const bre = el('button', 'mini', '⚙ 重排');
     bre.onclick = () => openRepair(b);
     const bchk = el('button', 'mini', '▦ 容量体检');
     bchk.onclick = () => capacityReport(b);
+    bar.appendChild(bbook); bar.appendChild(bfacts);
     bar.appendChild(bn); bar.appendChild(bre); bar.appendChild(bchk);
     top.appendChild(bar);
     stage.appendChild(top);
