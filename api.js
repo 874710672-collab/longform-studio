@@ -1,10 +1,20 @@
 /* api.js — OpenAI 兼容接口调用，支持流式 */
 (function () {
   /* 判断是不是「默认开深度思考」的模型（豆包 seed 系列等）。
-     其他家的模型不传 reasoning_effort，避免服务端不认识该参数而报 400。 */
+     其他家的模型不传思考参数，避免服务端不认识该参数而报 400。 */
   function isThinkingModel(model) {
     const m = String(model || '').toLowerCase();
-    return /doubao-seed/.test(m) || /^seed-/.test(m) || /doubao.*(2-[01]|seed)/.test(m);
+    if (/doubao-seed/.test(m)) return true;
+    if (/^seed-/.test(m)) return true;
+    if (/doubao.*(seed|2-[0-9])/.test(m)) return true;
+    if (/glm-5/.test(m)) return true;
+    return false;
+  }
+
+  /* glm-5-3-flash 起只支持 enabled，无法关闭，别传 disabled 会报错 */
+  function cannotDisable(model) {
+    const m = String(model || '').toLowerCase();
+    return /glm-5-3/.test(m);
   }
 
   function buildMessages(system, user) {
@@ -30,8 +40,12 @@
     // 显式指定输出上限；不指定时很多模型会默认 4096/8192，长文会被截断
     const mt = maxTokens || cfg.maxTokens;
     if (mt) body.max_tokens = mt;
-    // 只有确定支持「深度思考」的模型才传这个参数，其他家传了会 400
-    if (cfg.noThinking !== false && isThinkingModel(cfg.model)) {
+    // 只有确定支持「深度思考」开关的模型才传这些参数，其他家传了会 400
+    if (cfg.noThinking !== false && isThinkingModel(cfg.model) && !cannotDisable(cfg.model)) {
+      // 双保险：
+      //  thinking.type=disabled —— 火山方舟官方推荐的关闭方式
+      //  reasoning_effort=minimal —— 兼容仍按旧参数识别的模型（文档：minimal 即关闭思考）
+      body.thinking = { type: 'disabled' };
       body.reasoning_effort = 'minimal';
     }
     if (jsonMode) body.response_format = { type: 'json_object' };
