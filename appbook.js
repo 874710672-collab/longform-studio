@@ -2,6 +2,7 @@
 (function () {
   const A = window.APP;
   const el = A.el;
+  const toast = A.toast;
   const stage = A.stage;
 
   function cur() { return A.cur; }
