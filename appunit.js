@@ -2,6 +2,7 @@
 (function () {
   const A = window.APP;
   const el = A.el;
+  const toast = A.toast;
   const stage = A.stage;
 
   function cur() { return A.cur; }
@@ -167,17 +168,7 @@
     const c = el('div', 'card');
     c.appendChild(el('h3', '', '增量校验'));
     const known = (b.facts.people || []).map(p => p.name);
-    const added = [];
-    const re = /【新增人物】([\s\S]*?)(?=【|$)/;
-    const m = text.match(re);
-    if (m) {
-      m[1].split('\n').forEach(line => {
-        const s = line.trim().replace(/^[-·]/,'');
-        if (!s || s === '无') return;
-        const f = s.split(/[｜|]/);
-        if (f[0] && f.length > 2) added.push({ name: f[0].trim(), gender: /女/.test(f[1] || '') ? '女' : (/男/.test(f[1] || '') ? '男' : ''), age: (f[2]||'').trim(), role: (f[3]||'').trim(), rel: (f[4]||'').trim(), voice: (f[5]||'').trim() });
-      });
-    }
+    const added = LEngine.parseNewPeople(text);
     c.appendChild(el('div', 'hint', '已有人物 ' + known.length + ' 个（只读）。本篇新增 ' + added.length + ' 个。'));
     added.forEach(p => {
       const row = el('div', 'fact-row');
@@ -251,7 +242,7 @@
     u.steps.relay.status = 'done';
     Books.pushHistory(b, '应用交棒单', `第${u.idx + 1}篇：+${res.changed.plants} 伏笔 / 销账 ${res.changed.pays} / 状态 ${res.changed.states}`);
     A.persist(); A.render();
-    toast(`已应用：新增 ${res.changed.plants} 条伏笔，销账 ${res.changed.pays} 条，更新 ${res.changed.states} 人状态`);
+    A.toast(`已应用：新增 ${res.changed.plants} 条伏笔，销账 ${res.changed.pays} 条，更新 ${res.changed.states} 人状态`);
   }
 
   /* ---------- 润色检查 ---------- */
