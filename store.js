@@ -5,14 +5,14 @@
   const K_CUR = 'ts_cur_v1';
 
   const DEFAULT_CFG = {
-    baseUrl: 'https://api.deepseek.com/v1',
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     apiKey: '',
-    model: 'deepseek-chat',
+    model: 'doubao-seed-2-1-lite-260915',
     temperature: 0.9,
     cards: 1,          // 每次生成几条候选
     stream: true,
     maxTokens: 32000,
-    noThinking: true
+    noThinking: true   // 豆包 seed 系列默认开深度思考，这里默认关掉
   };
 
   function loadJSON(k, d) {
