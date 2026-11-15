@@ -319,16 +319,29 @@
     const mtf = el('div', 'field');
     mtf.appendChild(el('label', '', '单次输出上限（max_tokens）'));
     const mti = el('input'); mti.type = 'number'; mti.value = String(cfg.maxTokens || 32000);
-    mti.oninput = () => { mti.dataset.v = mti.value; };
-    mti.dataset.v = mti.value;
     mtf.appendChild(mti);
     c.appendChild(mtf);
-    c.appendChild(el('div', 'hint', '模型名带 seed/doubao 才会自动关深度思考；其他模型不加该参数。'));
+
+    /* 两个开关 */
+    const sw = (label, hint, checked, key) => {
+      const row = el('div', 'switch-row');
+      const cb = el('input'); cb.type = 'checkbox'; cb.checked = !!checked; cb.dataset.sw = key;
+      const lb = el('label', '', label);
+      const box = el('span', 'sw-box');
+      box.appendChild(cb);
+      row.appendChild(box); row.appendChild(lb);
+      const wrap = el('div', '');
+      wrap.appendChild(row);
+      if (hint) wrap.appendChild(el('div', 'hint', hint));
+      return wrap;
+    };
+    c.appendChild(sw('流式输出', '边写边显示。关掉后要等整段生成完才出现。', cfg.stream !== false, 'stream'));
+    c.appendChild(sw('关闭深度思考', '豆包 seed 系列默认开启深度思考。勾上会传 thinking.type=disabled，长文生成快很多。', cfg.noThinking !== false, 'noThinking'));
+    c.appendChild(el('div', 'hint', '模型名带 doubao-seed / seed- 才会自动传关闭参数；glm-5-3 起官方不支持关闭，会自动跳过。'));
 
     const acts = el('div', 'sheet-acts');
     const save = el('button', 'primary-btn', '保存');
     save.onclick = () => {
-      const inputs = c.querySelectorAll('[data-v]');
       const patch = {
         baseUrl: fUrl.querySelector('input').value.trim(),
         apiKey: fKey.querySelector('input').value.trim(),
@@ -336,6 +349,7 @@
         temperature: parseFloat(ti.value),
         maxTokens: parseInt(mti.value, 10) || 32000
       };
+      c.querySelectorAll('[data-sw]').forEach(cb => { patch[cb.dataset.sw] = cb.checked; });
       Store.setCfg(patch);
       toast('已保存');
       view = cur ? (cur.units.length ? 'units' : 'book') : 'home';
