@@ -174,3 +174,19 @@
 
 /* 顶栏按钮 */
 #topbar .ghost-btn{font-size:12px;padding:6px 10px}
+
+/* ---------- 设置页开关 ---------- */
+.switch-row{display:flex;align-items:center;gap:9px;margin-top:12px}
+.switch-row label{font-size:14px}
+.sw-box{display:inline-flex}
+.sw-box input{
+  appearance:none;-webkit-appearance:none;
+  width:20px;height:20px;border-radius:6px;
+  border:1.5px solid var(--line);background:var(--panel2);
+  position:relative;flex:0 0 auto;
+}
+.sw-box input:checked{background:var(--accent);border-color:var(--accent)}
+.sw-box input:checked::after{
+  content:"✓";position:absolute;inset:0;display:grid;place-items:center;
+  color:#1a1426;font-size:13px;font-weight:700;
+}
