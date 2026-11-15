@@ -11,7 +11,8 @@
   const els = {
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
-    bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits')
+    bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
+    bBook: $('#btnBook'), bFacts: $('#btnFacts')
   };
 
   let cur = Books.current();
@@ -67,6 +68,8 @@
       els.project.textContent = '长篇工坊';
       els.sub.textContent = '选择或新建一本书';
       els.bUnits.hidden = true;
+      if (els.bBook) els.bBook.hidden = true;
+      if (els.bFacts) els.bFacts.hidden = true;
       return;
     }
     els.project.textContent = cur.title;
@@ -74,12 +77,18 @@
     if (view === 'unit' && u) {
       const t = LEngine.tierOf(u);
       els.sub.textContent = `第${u.idx + 1}篇 · ${u.kind === 'side' ? '副线' : '主线'} · ${t.name}档 约${t.words}字`;
+    } else if (view === 'facts') {
+      const pn = ((cur.facts && cur.facts.people) || []).length;
+      const fn = (cur.foreshadow || []).filter(x => x.status === 'open').length;
+      els.sub.textContent = `硬事实表 · ${pn} 人 · ${fn} 条待收伏笔`;
     } else if (view === 'units') {
       els.sub.textContent = `共 ${cur.units.length} 篇 · 目标 ${(cur.target / 10000).toFixed(0)} 万字 · 规划 ${(LEngine.totalWords(cur) / 10000).toFixed(1)} 万字`;
     } else {
       els.sub.textContent = '全书层 · ' + (LT.BOOK_STEP_NAME[curStep] || '');
     }
     els.bUnits.hidden = false;
+    if (els.bBook) els.bBook.hidden = false;
+    if (els.bFacts) els.bFacts.hidden = false;
   }
 
   /* ---------- 步骤条 ---------- */
@@ -142,12 +151,13 @@
     renderTop();
     renderSteps();
     $('#btnExport').hidden = !(cur && view !== 'home');
-    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units');
+    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts');
     stage.innerHTML = '';
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
     if (!cur) { view = 'home'; renderHome(); return; }
     if (view === 'units') { UNITUI.renderUnitList(); updateDock(); return; }
+    if (view === 'facts') { FACTSUI.renderFacts(); updateDock(); return; }
     if (view === 'book') { BOOKUI.renderBook(); updateDock(); return; }
     if (view === 'unit') { UNITUI2.renderUnit(); updateDock(); return; }
   }
@@ -155,7 +165,7 @@
   /* ---------- 底栏 ---------- */
   function updateDock() {
     const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove'].forEach(k => els[k].hidden = true);
-    if (!cur || view === 'home' || view === 'units' || view === 'settings') { hide(); els.dockInfo.textContent = ''; return; }
+    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
     const u = curUnit();
@@ -399,6 +409,26 @@
     if (busy) { toast('正在生成，先等一下'); return; }
     if (!cur) return;
     view = 'units'; render();
+  };
+  $('#btnBook').onclick = () => {
+    if (busy) { toast('正在生成，先等一下'); return; }
+    if (!cur) return;
+    view = 'book';
+    /* 优先进入「有内容但还没通过」的那一环，其次第一个没做完的 */
+    const order = LT.BOOK_STEPS;
+    const withContent = order.find(k => {
+      const s = cur.steps[k];
+      return docOf(s) && s.status !== 'done';
+    });
+    const lastWithContent = [...order].reverse().find(k => docOf(cur.steps[k]));
+    const firstEmpty = order.find(k => !docOf(cur.steps[k]));
+    curStep = withContent || lastWithContent || firstEmpty || order[0];
+    render();
+  };
+  $('#btnFacts').onclick = () => {
+    if (busy) { toast('正在生成，先等一下'); return; }
+    if (!cur) return;
+    view = 'facts'; render();
   };
   $('#btnSet').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
