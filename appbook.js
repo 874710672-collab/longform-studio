@@ -222,11 +222,20 @@
       r.people.forEach(p => {
         const row = el('div', 'fact-row');
         row.appendChild(el('b', '', p.name));
-        row.appendChild(el('span', 'g' + (p.gender === '男' ? 'm' : p.gender === '女' ? 'f' : ''), p.gender || '?'));
+        if (p.roleTag) row.appendChild(el('span', 'role-tag', p.roleTag));
+        const g = p.gender;
+        row.appendChild(el('span', 'g' + (g === '男' ? 'm' : g === '女' ? 'f' : ' missing'),
+          g || '缺性别'));
         row.appendChild(el('span', 'sub', [p.age ? p.age + '岁' : '', p.role].filter(Boolean).join(' · ')));
         if (p.voice) row.appendChild(el('div', 'voice', p.voice));
         tb.appendChild(row);
       });
+
+      const bad = r.people.filter(p => !p.gender).length;
+      if (bad) {
+        c.appendChild(el('div', 'cap-tip thin',
+          `有 ${bad} 个人物没解析出性别。人称检查会失效——建议先补上，或在「事实表」页手动编辑。`));
+      }
       c.appendChild(tb);
     } else {
       c.appendChild(el('div', 'hint', '没解析出人物。格式必须是一行一个人，用「｜」分隔。'));
