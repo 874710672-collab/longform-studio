@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v21-backup';
+window.APP_VERSION = 'v22-revise';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -195,10 +195,17 @@ window.APP_VERSION = 'v21-backup';
     els.bApprove.hidden = bz || !has;
 
     els.bGen.textContent = isDraft ? '写这一节' : '生成';
-    els.bRevise.textContent = isDraft ? '✎ 按意见改本节' : '✎ 按意见改';
+    els.bRevise.textContent = isDraft ? '✎ 改本节' : '✎ 改原稿';
     els.bRevise.classList.toggle('need-fb', !fb);
-    els.bRevise.title = fb ? '带上原稿 + 意见，只改提到的地方' : '先在右边写审核意见';
-    els.bRegen.textContent = isDraft ? '↻ 重写本节' : '↻ 重新生成';
+    els.bRevise.title = fb
+      ? '带原稿 + 意见：只改你提到的地方，其它段落保持不动'
+      : '先在右边写审核意见';
+    els.bRegen.textContent = fb
+      ? (isDraft ? '↻ 重写本节' : '↻ 按意见重写')
+      : (isDraft ? '↻ 重写本节' : '↻ 重新生成');
+    els.bRegen.title = fb
+      ? '带意见但不带原稿：从头再写一版，可能和你原来的不一样'
+      : '不带任何东西，重新生成一版';
 
     if (isUnit) {
       const order = LT.UNIT_STEPS;
