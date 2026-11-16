@@ -124,6 +124,8 @@
       units: [],
       readerKnowledge: [],
       fsSeq: 0,
+      drafts: {},               // 每稿独立数据 { draftId: { spine, units, unitId } }
+      activeDraftId: null,      // 当前活动的稿
       level: 'book',            // book | units | unit
       bookStep: 'book',         // book | cast | spine
       unitId: null,
@@ -156,6 +158,8 @@
     b.units.forEach(migrateUnit);
     /* 推进表格子补 id，单元补 gridId（兼容老数据） */
     if (window.GRID) GRID.migrate(b);
+    /* 每稿独立单元列表（兼容老数据） */
+    if (window.DRAFTS) DRAFTS.migrate(b);
     if (typeof b.fsSeq !== 'number') b.fsSeq = b.foreshadow.length;
     if (!b.level) b.level = 'book';
     if (!b.bookStep) b.bookStep = 'book';
