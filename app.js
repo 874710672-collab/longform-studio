@@ -1,4 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
+window.APP_VERSION = 'v18-fix-overdue';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -66,7 +67,7 @@
   function renderTop() {
     if (view === 'home' || !cur) {
       els.project.textContent = '长篇工坊';
-      els.sub.textContent = '选择或新建一本书';
+      els.sub.textContent = '选择或新建一本书 · ' + (window.APP_VERSION || '');
       els.bUnits.hidden = true;
       if (els.bBook) els.bBook.hidden = true;
       if (els.bFacts) els.bFacts.hidden = true;
@@ -404,6 +405,30 @@
     acts.appendChild(save); acts.appendChild(test);
     c.appendChild(acts);
     stage.appendChild(c);
+
+    /* 版本信息 + 强制更新 */
+    const vc = el('div', 'card');
+    vc.appendChild(el('h3', '', '版本'));
+    const ver = window.APP_VERSION || '未知';
+    vc.appendChild(el('div', 'kv')).appendChild(el('b', '', ver));
+    vc.appendChild(el('div', 'hint', '如果功能没生效，说明设备还在用旧缓存。点下面按钮强制清缓存重载。'));
+    const fb = el('button', 'primary-btn wide', '强制清缓存并重载');
+    fb.onclick = async () => {
+      fb.disabled = true; fb.textContent = '清理中…';
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+          const rs = await navigator.serviceWorker.getRegistrations();
+          for (const r of rs) await r.unregister();
+        }
+        if (window.caches) {
+          const ks = await caches.keys();
+          for (const k of ks) await caches.delete(k);
+        }
+      } catch (e) {}
+      location.replace(location.pathname + '?fresh=' + Date.now());
+    };
+    vc.appendChild(fb);
+    stage.appendChild(vc);
   }
 
   /* ---------- 事件绑定 ---------- */
@@ -467,9 +492,11 @@
 
   /* 启动渲染 */
   render();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
+  /* 不再注册 Service Worker：它会把旧 JS 缓存住，导致更新后功能不生效。
+     GitHub Pages 本身就够快，离线能力不值得为此牺牲更新可靠性。 */
+  if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then(rs => {
+      rs.forEach(r => r.unregister());
+    }).catch(() => {});
   }
 })();
