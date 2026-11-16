@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v33-final';
+window.APP_VERSION = 'v34-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -158,6 +158,8 @@ window.APP_VERSION = 'v33-final';
   /* ---------- 主渲染 ---------- */
   function render() {
     syncCur();
+    /* 先隐藏悬浮意见窗，需要它的页面会在渲染中重新绑定 */
+    if (window.FBFLOAT) FBFLOAT.hide();
     if (cur) Books.migrateBook(cur);
     renderTop();
     renderSteps();
