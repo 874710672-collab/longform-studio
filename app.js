@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v25-cast';
+window.APP_VERSION = 'v28-grid';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -79,6 +79,8 @@ window.APP_VERSION = 'v25-cast';
     if (view === 'unit' && u) {
       const t = LEngine.tierOf(u);
       els.sub.textContent = `第${u.idx + 1}篇 · ${u.kind === 'side' ? '副线' : '主线'} · ${t.name}档 约${t.words}字`;
+    } else if (view === 'grid') {
+      els.sub.textContent = `主线推进表 · ${(cur.spine || []).length} 格（可编辑）`;
     } else if (view === 'backup') {
       const n = (cur ? 0 : 0);
       els.sub.textContent = '备份与恢复 · 全部数据';
@@ -160,7 +162,7 @@ window.APP_VERSION = 'v25-cast';
     renderTop();
     renderSteps();
     $('#btnExport').hidden = !(cur && view !== 'home');
-    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup');
+    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid');
     stage.innerHTML = '';
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
@@ -169,6 +171,7 @@ window.APP_VERSION = 'v25-cast';
     if (view === 'units') { UNITUI.renderUnitList(); updateDock(); return; }
     if (view === 'facts') { FACTSUI.renderFacts(); updateDock(); return; }
     if (view === 'audit') { AUDITUI.renderAudit(); updateDock(); return; }
+    if (view === 'grid') { GRIDUI.renderGrid(); updateDock(); return; }
     if (view === 'book') { BOOKUI.renderBook(); updateDock(); return; }
     if (view === 'unit') { UNITUI2.renderUnit(); updateDock(); return; }
   }
@@ -176,7 +179,7 @@ window.APP_VERSION = 'v25-cast';
   /* ---------- 底栏 ---------- */
   function updateDock() {
     const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove'].forEach(k => els[k].hidden = true);
-    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup') { hide(); els.dockInfo.textContent = ''; return; }
+    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
     const u = curUnit();
