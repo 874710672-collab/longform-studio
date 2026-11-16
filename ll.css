@@ -321,3 +321,13 @@
 
 /* 孤立单元 */
 .unit-row.orphan{border-left-color:#ff8c64;background:rgba(255,120,100,.05)}
+
+/* ---------- 编辑表单：位置控件 ---------- */
+.pos-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pos-row input[type=number]{
+  width:72px;text-align:center;font-size:16px;font-weight:600;
+  background:var(--panel2);border:1px solid var(--accent);border-radius:8px;
+  padding:7px 6px;color:var(--accent2);
+}
+.pos-lbl{font-size:13px;color:var(--sub)}
+.pos-row .mini{margin-left:auto}
