@@ -11,6 +11,7 @@
   });
 
   let curStepRef = null;     // 当前绑定的 step 对象
+  let dismissed = false;     // 用户是否主动关掉了
   let dragging = false;
   let pos = null;            // {x, y}
   const POS_KEY = 'll_fb_pos_v1';
@@ -51,19 +52,62 @@
   /* 绑定一个步骤的 feedback */
   function bind(step, label) {
     if (!step) { hide(); return; }
+    lastStep = step;
+    lastLabel = label || '审核意见';
     curStepRef = step;
+    /* 用户主动关掉的，不在自动渲染时强行弹出 */
+    if (dismissed) { notify(); return; }
     const e = els();
     if (!e.box) return;
     e.box.hidden = false;
     e.ta.value = step.feedback || '';
     const t = e.head.querySelector('.fb-float-title');
-    if (t) t.textContent = label || '审核意见';
+    if (t) t.textContent = lastLabel;
+    notify();
   }
+
+  /* 记录最近一次的绑定，用于"唤回" */
+  let lastStep = null;
+  let lastLabel = '';
 
   function hide() {
     const e = els();
     if (e.box) e.box.hidden = true;
     curStepRef = null;
+    notify();
+  }
+
+  /* 用户主动关闭（点 ×）：隐藏但保留可唤回 */
+  function close() {
+    const e = els();
+    if (e.box) e.box.hidden = true;
+    curStepRef = null;
+    dismissed = true;
+    notify();
+  }
+
+  /* 唤回：重新显示并绑定上一次的 step */
+  function show() {
+    const e = els();
+    if (!e.box) return;
+    e.box.hidden = false;
+    dismissed = false;
+    if (lastStep) bind(lastStep, lastLabel);
+    notify();
+  }
+
+  function isShowing() {
+    const e = els();
+    return !!(e.box && !e.box.hidden);
+  }
+
+  function hasTarget() { return !!lastStep; }
+
+  /* 通知外部按钮状态变化 */
+  function notify() {
+    if (window.APP && window.APP.updateDock) {
+      try { window.APP.updateDock(); } catch (e) {}
+    }
   }
 
   /* 初始化 DOM 与事件（只做一次） */
@@ -73,7 +117,7 @@
       /* DOM 由 index.html 提供，这里兜底创建 */
       build();
     }
-    const { box, head, ta, toggle, close } = els();
+    const { box, head, ta, toggle, close: closeBtn } = els();
     if (!box || box.dataset.ready) return;
     box.dataset.ready = '1';
 
@@ -127,14 +171,15 @@
     document.addEventListener('touchend', onUp);
 
     /* 折叠 */
-    toggle.addEventListener('click', (ev) => {
+    if (toggle) toggle.addEventListener('click', (ev) => {
       ev.stopPropagation();
       const collapsed = box.classList.contains('collapsed');
       collapse(!collapsed);
     });
-    close.addEventListener('click', (ev) => {
+    if (closeBtn) closeBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
       ev.stopPropagation();
-      hide();
+      close();
     });
 
     /* 输入即保存 */
@@ -180,5 +225,5 @@
     document.body.appendChild(box);
   }
 
-  window.FBFLOAT = { init, bind, hide, collapse };
+  window.FBFLOAT = { init, bind, hide, close, show, collapse, isShowing, hasTarget };
 })();
