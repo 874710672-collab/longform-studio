@@ -823,6 +823,7 @@
   window.LEngine = {
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
     factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
+    dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, fuzzyMatchForeshadow,
     progressAuditData, genAudit,
