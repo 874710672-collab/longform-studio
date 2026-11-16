@@ -157,6 +157,64 @@
     return L.join('\n');
   }
 
+  /* 从大纲里解析出「每一节负责回收哪些伏笔」 */
+  function outlineFsPlan(outlineText, book) {
+    const parts = splitParts(outlineText);
+    const open = (book.foreshadow || []).filter(f => f.status === 'open');
+    return parts.map(p => {
+      const m = p.body.match(/本节回收的伏笔[：:]\s*([^\n]*)/);
+      if (!m) return [];
+      const line = m[1].trim();
+      if (!line || line === '无' || line.indexOf('无') === 0) return [];
+      /* 先按 F01 这样的编号找 */
+      const ids = line.match(/F\d+/g) || [];
+      if (ids.length) return open.filter(f => ids.indexOf(f.id) >= 0);
+      /* 没有编号就按描述模糊找 */
+      return fuzzyMatchForeshadow(line, open);
+    });
+  }
+
+  /* 本篇「应该回收」的伏笔：计划回收篇号 <= 本篇编号，且未收 */
+  function dueForeshadows(book, u) {
+    const no = u.idx + 1;
+    return (book.foreshadow || []).filter(f =>
+      f.status === 'open' && f.planPay && f.planPay <= no
+    );
+  }
+
+  /* 本节要回收的伏笔，单独列一段给正文 */
+  function thisPartFsBlock(fsPlan, idx) {
+    const list = (fsPlan && fsPlan[idx]) || [];
+    if (!list.length) return '';
+    return '【本节必须回收的伏笔】\n' + list.map(f =>
+      `${f.id}｜${f.desc}｜第 ${f.plant} 篇埋下`
+    ).join('\n');
+  }
+
+  /* 大纲阶段的伏笔约束 */
+  function foreshadowOutlineRule(due) {
+    if (!due.length) {
+      return '本篇没有到期的伏笔。大纲里「本节回收的伏笔」一律写「无」，不要硬塞。';
+    }
+    const list = due.map(f => `${f.id}「${f.desc}」`).join('、');
+    return `本篇有 ${due.length} 条伏笔到期必须回收：${list}。`
+      + '把它们分配到具体某一节（可以同一节，也可以分几节），并在那一节的「本节回收的伏笔」里写明编号。'
+      + '回收不等于一句话带过——要在 beat 里写出"通过什么事件、谁知道了什么"，让读者真的看见这件事被揭开。';
+  }
+
+  /* 正文阶段的伏笔约束 */
+  function draftFsRule(partFs, due) {
+    if (partFs.length) {
+      return '本节负责回收 ' + partFs.map(f => `${f.id}「${f.desc}」`).join('、')
+        + '。必须写出具体的事件让读者看到这件事被揭开，不能只是提一句。';
+    }
+    if (due.length) {
+      return '本节不负责回收伏笔，但不要把 ' + due.map(f => f.id).join('、')
+        + ' 的内容提前说破。';
+    }
+    return '本节没有伏笔任务，正常推进即可。';
+  }
+
   function readerKnowBlock(book) {
     if (!book.readerKnowledge || !book.readerKnowledge.length) return '';
     return '【读者已知而主角不知的信息】\n' + book.readerKnowledge.map(x => `第${x.unit + 1}篇：${x.info}`).join('\n');
@@ -249,7 +307,9 @@
         topic: unitDoc(u, 'topic'),
         setting: unitDoc(u, 'setting'),
         prevBlock: prevBlock(book, u),
+        fsBlock: fsBlock(book),
         tierName: t.name, words: t.words, parts: t.parts,
+        foreshadowRule: foreshadowOutlineRule(dueForeshadows(book, u)),
         prevHookRule: isFirst
           ? '这是全书第一篇，最后一节的钩子要同时立起全书的悬念。'
           : '最后一节的钩子必须直接呼应上一篇交棒单里的「留给下一单元的开场画面」和「下一单元必须接住的」。'
@@ -296,6 +356,7 @@
     const partTitle = (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节');
     const partWords = (plan[idx] && plan[idx].words) || Math.round(t.words / Math.max(t.parts, plan.length || t.parts));
     const prevParts = parts.slice(0, idx).filter(Boolean).map(x => x.title + '\n' + x.body).join('\n\n');
+    const fsPlan = outlineFsPlan(unitDoc(u, 'outline'), book);
     const user = LP.fill(P.unitDraft, {
       idx: u.idx + 1,
       topic: unitDoc(u, 'topic'),
@@ -304,6 +365,9 @@
       prevBlock: prevBlock(book, u),
       prevParts: prevParts.slice(-3000) || '（本篇还没有前文，这是第一节）',
       brief: briefText(book.brief),
+      fsBlock: fsBlock(book),
+      thisPartFs: thisPartFsBlock(fsPlan, idx),
+      fsDutyRule: draftFsRule(fsPlan[idx] || [], dueForeshadows(book, u)),
       partTitle, partWords,
       feedback: feedbackOf(d)
     });
