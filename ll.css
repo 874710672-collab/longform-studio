@@ -331,3 +331,23 @@
 }
 .pos-lbl{font-size:13px;color:var(--sub)}
 .pos-row .mini{margin-left:auto}
+
+/* ---------- 推进稿切换 ---------- */
+.draft-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.draft-tab{
+  flex:0 0 auto;min-width:96px;padding:9px 12px;border-radius:11px;
+  background:var(--panel2);border:1px solid var(--line);
+  text-align:left;
+}
+.draft-tab.on{
+  border-color:var(--accent);background:rgba(185,166,255,.14);
+  box-shadow:0 0 0 1px rgba(185,166,255,.25) inset;
+}
+.dt-top{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.dt-top b{font-size:13px}
+.draft-tab.on .dt-top b{color:var(--accent2)}
+.dt-cur{
+  font-size:10px;padding:1px 5px;border-radius:4px;
+  background:var(--accent);color:#1a1426;font-weight:600;
+}
+.dt-meta{font-size:11px;color:var(--sub)}
