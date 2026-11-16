@@ -159,7 +159,9 @@
     bf.onclick = () => { A.setView('facts'); A.render(); };
     const bu = el('button', 'mini', '▤ 单元列表');
     bu.onclick = () => { A.setView('units'); A.render(); };
-    nav.appendChild(bf); nav.appendChild(bu);
+    const bg = el('button', 'mini', '▦ 编辑推进表');
+    bg.onclick = () => { A.setView('grid'); A.render(); };
+    nav.appendChild(bf); nav.appendChild(bu); nav.appendChild(bg);
     body.appendChild(nav);
     return c;
   }
