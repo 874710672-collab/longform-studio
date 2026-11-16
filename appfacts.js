@@ -27,7 +27,9 @@
     back.onclick = () => { A.setView('book'); A.render(); };
     const bunits = el('button', 'mini', '▤ 单元列表');
     bunits.onclick = () => { A.setView('units'); A.render(); };
-    nav.appendChild(back); nav.appendChild(bunits);
+    const baudit = el('button', 'mini', '◎ 进度对账');
+    baudit.onclick = () => { A.setView('audit'); A.render(); };
+    nav.appendChild(back); nav.appendChild(bunits); nav.appendChild(baudit);
     top.appendChild(nav);
     stage.appendChild(top);
 
