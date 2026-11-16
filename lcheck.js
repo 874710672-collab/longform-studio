@@ -126,7 +126,12 @@
 
   /* 全书伏笔体检：返回分组结果，供事实表页面用 */
   function auditForeshadow(book) {
-    const cur = (book.units || []).length;    // 当前已推进到第几篇
+    /* 当前进度 = 已完成单元（生成了交棒单）的最大编号，而不是规划总数。
+       取 units.length 会把"还没写的单元"算成"已经走过的路"。 */
+    const cur = (book.units || []).reduce((mx, u) => {
+      const done = (window.LEngine && LEngine.unitDoc) ? LEngine.unitDoc(u, 'relay') : '';
+      return done && done.trim() ? Math.max(mx, u.idx + 1) : mx;
+    }, 0);
     const list = (book.foreshadow || []).map(f => {
       let state = 'ok';
       let note = '';
