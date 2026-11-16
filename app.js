@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v20-timeline';
+window.APP_VERSION = 'v21-backup';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -79,6 +79,9 @@ window.APP_VERSION = 'v20-timeline';
     if (view === 'unit' && u) {
       const t = LEngine.tierOf(u);
       els.sub.textContent = `第${u.idx + 1}篇 · ${u.kind === 'side' ? '副线' : '主线'} · ${t.name}档 约${t.words}字`;
+    } else if (view === 'backup') {
+      const n = (cur ? 0 : 0);
+      els.sub.textContent = '备份与恢复 · 全部数据';
     } else if (view === 'audit') {
       const dn = cur.units.filter(u => LEngine.docOf(u.steps.relay)).length;
       els.sub.textContent = `进度对账 · 已完成 ${dn} 篇`;
@@ -157,10 +160,11 @@ window.APP_VERSION = 'v20-timeline';
     renderTop();
     renderSteps();
     $('#btnExport').hidden = !(cur && view !== 'home');
-    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit');
+    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup');
     stage.innerHTML = '';
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
+    if (view === 'backup') { BACKUPUI.renderBackup(); updateDock(); return; }
     if (!cur) { view = 'home'; renderHome(); return; }
     if (view === 'units') { UNITUI.renderUnitList(); updateDock(); return; }
     if (view === 'facts') { FACTSUI.renderFacts(); updateDock(); return; }
@@ -172,7 +176,7 @@ window.APP_VERSION = 'v20-timeline';
   /* ---------- 底栏 ---------- */
   function updateDock() {
     const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove'].forEach(k => els[k].hidden = true);
-    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit') { hide(); els.dockInfo.textContent = ''; return; }
+    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
     const u = curUnit();
@@ -235,6 +239,9 @@ window.APP_VERSION = 'v20-timeline';
     const nb = el('button', 'primary-btn wide', '＋ 新建长篇');
     nb.onclick = createBook;
     head.appendChild(nb);
+    const bkBtn = el('button', 'ghost-btn wide', '⤓ 备份与恢复');
+    bkBtn.onclick = () => { view = 'backup'; render(); };
+    head.appendChild(bkBtn);
     stage.appendChild(head);
 
     if (!list.length) {
@@ -428,6 +435,10 @@ window.APP_VERSION = 'v20-timeline';
       location.replace(location.pathname + '?fresh=' + Date.now());
     };
     vc.appendChild(fb);
+
+    const bk = el('button', 'ghost-btn wide', '⤓ 备份与恢复');
+    bk.onclick = () => { view = 'backup'; render(); };
+    vc.appendChild(bk);
     stage.appendChild(vc);
   }
 
