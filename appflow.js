@@ -468,39 +468,36 @@
       }
     }
   };
+  /* ↻ 重新生成：有意见就带着意见（不带原稿），没意见就纯重写 */
   regenBtn.onclick = () => {
     if (A.busy || !cur()) return;
     const b = cur();
-    if (A.view === 'book') {
-      const s = b.steps[A.curStep];
-      if (s.feedback) s.feedback = '';
-      genBook(A.curStep);
+    if (A.view === 'unit' && A.curUnitStep === 'polish') { polishUnit(b, A.curUnit()); return; }
+    if (A.view === 'unit' && A.curUnitStep === 'draft') {
+      const u = A.curUnit();
+      const d = u.steps.draft;
+      const idx = d.partIdx || 0;
+      if ((d.feedback || '').trim()) { REVISEUI.partReviseFresh(b, u, idx); return; }
+      genOnePart(b, u, idx);
       return;
     }
-    if (A.view === 'unit') {
-      const u = A.curUnit();
-      if (A.curUnitStep === 'draft') { genOnePart(b, u, u.steps.draft.partIdx || 0); return; }
-      if (A.curUnitStep === 'polish') { polishUnit(b, u); return; }
-      genUnit(A.curUnitStep);
-    }
+    const c = (A.view === 'unit') ? A.curUnit().steps[A.curUnitStep] : b.steps[A.curStep];
+    if ((c.feedback || '').trim()) REVISEUI.reviseFresh();
+    else REVISEUI.regen();
   };
+  /* ✎ 按意见改原稿：带原稿 + 意见，只改提到的地方 */
   reviseBtn.onclick = () => {
     if (A.busy || !cur()) return;
-    if (A.view === 'book') { reviseBook(A.curStep); return; }
-    if (A.view === 'unit') {
+    const b = cur();
+    if (A.view === 'unit' && A.curUnitStep === 'draft') {
       const u = A.curUnit();
-      if (A.curUnitStep === 'draft') { revisePartWithFeedback(cur(), u); return; }
-      reviseUnit(A.curUnitStep);
+      REVISEUI.partReviseKeep(b, u, u.steps.draft.partIdx || 0);
+      return;
     }
+    if (A.view === 'unit' && A.curUnitStep === 'polish') { polishUnit(b, A.curUnit()); return; }
+    REVISEUI.reviseKeep();
   };
   approveBtn.onclick = () => { if (!A.busy) approve(); };
-
-  /* 单节按意见改 */
-  async function revisePartWithFeedback(b, u) {
-    const d = u.steps.draft;
-    if (!(d.feedback || '').trim()) { A.toast('先在右边写审核意见'); return; }
-    return genOnePart(b, u, d.partIdx || 0);
-  }
 
   /* 导出 */
   document.getElementById('btnExport').onclick = () => {
