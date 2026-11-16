@@ -638,7 +638,11 @@
 
     /* 1. 新增伏笔（同一单元重复应用时不重复入库） */
     r.plants.forEach(p => {
-      const dup = book.foreshadow.some(f => f.unitId === u.id && f.desc === p.desc);
+      /* 去重：优先按单元 id，兼容老数据（没有 unitId）时按「埋下篇 + 描述」 */
+      const dup = book.foreshadow.some(f =>
+        (f.unitId === u.id || (f.unitId === undefined && f.plant === u.idx + 1))
+        && String(f.desc).trim() === String(p.desc).trim()
+      );
       if (dup) return;
       book.fsSeq = (book.fsSeq || 0) + 1;
       const id = 'F' + String(book.fsSeq).padStart(2, '0');
@@ -674,10 +678,18 @@
       if (p) { p.status = c.what; changed.states++; }
     });
 
-    /* 4. 时间轴锚点 */
+    /* 4. 时间轴锚点：同一单元只保留一条，重复应用时覆盖 */
     if (r.timePlace) {
       book.facts.anchors = book.facts.anchors || [];
-      book.facts.anchors.push({ time: r.timePlace, event: (r.solved || '').slice(0, 60), unit: u.idx + 1 });
+      const rec = {
+        unit: u.idx + 1,
+        time: r.timePlace,
+        event: (r.solved || '').slice(0, 60)
+      };
+      const i = book.facts.anchors.findIndex(a => a.unit === rec.unit);
+      if (i >= 0) book.facts.anchors[i] = rec;
+      else book.facts.anchors.push(rec);
+      book.facts.anchors.sort((x, y) => x.unit - y.unit);
     }
 
     /* 5. 副线：记录读者知识 */
