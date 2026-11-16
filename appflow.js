@@ -380,21 +380,17 @@
       const i = LT.BOOK_STEPS.indexOf(k);
       if (i < LT.BOOK_STEPS.length - 1) A.setCurStep(LT.BOOK_STEPS[i + 1]);
       else {
-        /* 推进表通过：生成/更新单元列表，然后进单元页 */
+        /* 推进表通过：按新推进表同步单元列表，然后进单元页 */
         const cells = LEngine.parseSpine(A.docOf(s));
         if (cells.length) {
           b.spine = cells;
-          if (!b.units.length) LEngine.buildUnitsFromSpine(b, true);
-          else {
-            /* 已有单元：只补新增的格子，已写的不动 */
-            const have = new Set(b.units.filter(u => u.kind === 'main').map(u => u.spineAt));
-            cells.filter(c => !have.has(c.step)).forEach(c => {
-              b.units.push(Books.newUnit(b.id, b.units.length, {
-                kind: 'main', tier: { 小: 's', 中: 'm', 大: 'l' }[c.size] || 'm',
-                beats: c.beats || 5, title: c.title, spineAt: c.step
-              }));
-            });
-            LEngine.renumber(b);
+          const report = LEngine.syncUnitsWithSpine(b);
+          if (report.touched) {
+            Books.pushHistory(b, '同步推进表',
+              `更新 ${report.updated} 篇 · 新增 ${report.added} 篇 · 移除 ${report.removed} 篇${report.keptDone ? ' · 保留已完成 ' + report.keptDone + ' 篇' : ''}`);
+            A.toast(`已同步：更新 ${report.updated} · 新增 ${report.added} · 移除 ${report.removed}`);
+          } else {
+            A.toast('推进表没有变化');
           }
         }
         A.setView('units');
