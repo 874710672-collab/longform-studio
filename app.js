@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v37-factsedit';
+window.APP_VERSION = 'v39-aifill';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -33,6 +33,11 @@ window.APP_VERSION = 'v37-factsedit';
     toast._h = setTimeout(() => { t.hidden = true; }, 2600);
   }
   function sheet(html, onMount) {
+    /* 弹窗打开时把悬浮意见窗收起来，避免遮挡 */
+    if (window.FBFLOAT && FBFLOAT.isShowing && FBFLOAT.isShowing()) {
+      window.__fbWasShowing = true;
+      FBFLOAT.hide();
+    }
     const s = $('#sheet');
     $('#sheetBody').innerHTML = html;
     s.hidden = false;
@@ -42,7 +47,14 @@ window.APP_VERSION = 'v37-factsedit';
     if (close) close.onclick = closeSheet;
     s.onclick = (e) => { if (e.target === s) closeSheet(); };
   }
-  function closeSheet() { $('#sheet').hidden = true; $('#sheet').classList.add('hide'); }
+  function closeSheet() {
+    $('#sheet').hidden = true; $('#sheet').classList.add('hide');
+    /* 弹窗关闭后恢复之前开着的悬浮意见窗 */
+    if (window.__fbWasShowing && window.FBFLOAT) {
+      window.__fbWasShowing = false;
+      FBFLOAT.show();
+    }
+  }
   function fmtTime(ts) {
     const d = new Date(ts);
     const z = (n) => String(n).padStart(2, '0');
