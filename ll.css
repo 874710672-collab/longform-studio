@@ -400,3 +400,25 @@
 }
 .dt-del:active{background:rgba(255,140,100,.2);color:#ff8c64;opacity:1}
 .draft-tab{position:relative}
+
+/* ---------- AI 补全区 ---------- */
+.ai-fill-box{
+  margin:12px 0 14px;padding:11px 12px;border-radius:11px;
+  background:rgba(185,166,255,.07);
+  border:1px dashed rgba(185,166,255,.38);
+}
+.af-head{display:flex;align-items:baseline;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.af-title{font-size:13px;font-weight:600;color:var(--accent2)}
+.af-hint{font-size:10px;color:var(--sub)}
+.ai-fill-box textarea{
+  width:100%;background:var(--panel);border:1px solid var(--line);
+  border-radius:8px;padding:8px 9px;font-size:13px;line-height:1.6;
+  color:var(--txt);resize:vertical;font-family:inherit;
+}
+.ai-fill-box textarea:focus{outline:none;border-color:var(--accent)}
+.af-acts{display:flex;align-items:center;gap:9px;margin-top:8px}
+.af-acts .mini{padding:6px 12px}
+.af-status{font-size:11px;color:var(--sub);flex:1;min-width:0}
+
+/* 格子卡片上的大意提示 */
+.gc-rough{font-size:11px;color:var(--accent2);margin-top:5px;line-height:1.5;opacity:.8}
