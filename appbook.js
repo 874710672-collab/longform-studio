@@ -166,6 +166,16 @@
         A.persist(); A.render();
         toast('已切到稿 ' + (i + 1));
       };
+
+      /* 删除稿件：至少保留一稿，且要二次确认 */
+      const del = el('button', 'dt-del', '×');
+      del.title = '删除这一稿';
+      del.onclick = (e) => {
+        e.stopPropagation();
+        deleteDraft(b, s, i);
+      };
+      t.appendChild(del);
+
       tabs.appendChild(t);
     });
     c.appendChild(tabs);
@@ -198,6 +208,64 @@
     acts.appendChild(cp);
     c.appendChild(acts);
     return c;
+  }
+
+  /* 删除某一稿（二次确认） */
+  function deleteDraft(b, s, idx) {
+    if (s.versions.length <= 1) {
+      alert('至少要保留一稿，不能删除最后一稿。');
+      return;
+    }
+    const v = s.versions[idx];
+    const st = DRAFTS.statsOf(b, v.draftId);
+
+    /* 判断这一稿有没有写过的内容 */
+    let hasWork = false;
+    const slot = (b.drafts || {})[v.draftId];
+    if (slot && (slot.units || []).length) {
+      hasWork = slot.units.some(u => LEngine.unitHasContent(u));
+    }
+    /* 如果删的是当前稿，看内存里的 */
+    if (v.draftId === DRAFTS.currentDraftId(b)) {
+      hasWork = (b.units || []).some(u => LEngine.unitHasContent(u));
+    }
+
+    /* 第一次确认 */
+    const first = hasWork
+      ? `稿 ${idx + 1} 里已经有写过内容（${st.units} 篇单元）。\n\n删除后这些正文、大纲、交棒单都会一起消失，无法恢复。\n\n确定要删除吗？`
+      : `删除稿 ${idx + 1}？\n\n这一稿有 ${st.cells} 个格子、${st.units} 个单元（都还没写内容）。`;
+
+    if (!confirm(first)) return;
+
+    /* 有内容时二次确认，要求输入字数 */
+    if (hasWork) {
+      const typed = prompt(
+        `最后确认：稿 ${idx + 1} 里有 ${st.units} 篇已写内容的单元。\n\n` +
+        '这些内容删除后无法找回。\n' +
+        '建议先用「⤓ 备份」导出一份。\n\n' +
+        '确认删除请输入「删除」两个字：'
+      );
+      if (typed !== '删除') { toast('已取消'); return; }
+    }
+
+    /* 执行删除 */
+    const wasCurrent = v.draftId === DRAFTS.currentDraftId(b);
+    DRAFTS.dropDraft(b, v.draftId);
+    s.versions.splice(idx, 1);
+
+    if (wasCurrent) {
+      /* 切到前一稿（或第一稿） */
+      const ni = Math.max(0, Math.min(idx - 1, s.versions.length - 1));
+      s.sel = ni;
+      const id = DRAFTS.currentDraftId(b);
+      DRAFTS.load(b, id);
+    } else if (s.sel > idx) {
+      s.sel -= 1;
+    }
+
+    Books.pushHistory(b, '删除推进稿', `稿 ${idx + 1}`);
+    A.persist(); A.render();
+    toast('已删除稿 ' + (idx + 1));
   }
 
   function placeholder(k) {
@@ -314,20 +382,21 @@
     return vt;
   }
 
+  /* 审核意见：现在改为悬浮窗，这里是绑定入口（保留同名以避免改动调用点） */
   function feedbackCard(s, key) {
-    const c = el('div', 'card');
-    const h = el('h3', '', '审核意见');
-    h.appendChild(el('span', 'tag', '写在这里，再点「按意见改」'));
-    c.appendChild(h);
-    const ta = el('textarea');
-    ta.className = 'fb-area';
-    ta.rows = 6;
-    ta.placeholder = '例：反派动机太弱，要写成他当年被主角父亲救过一次…';
-    ta.value = s.feedback || '';
-    ta.oninput = () => { s.feedback = ta.value; A.persist(); A.updateDock(); };
-    c.appendChild(ta);
-    return c;
+    if (!s) return document.createDocumentFragment();
+    const label = LT.BOOK_STEP_NAME[key] || LT.UNIT_STEP_NAME[key] || '审核意见';
+    /* 延迟一帧绑定，确保本轮 render 结束后 DOM 已就绪 */
+    requestAnimationFrame(() => {
+      if (window.FBFLOAT) {
+        FBFLOAT.init();
+        FBFLOAT.bind(s, label + ' · 审核意见');
+      }
+    });
+    /* 返回空片段：不再往页面里插卡片 */
+    return document.createDocumentFragment();
   }
+
 
   function toggleEdit(s, pre) {
     const ta = el('textarea');
