@@ -13,6 +13,9 @@
     const k = A.curStep;
     const s = b.steps[k];
 
+    /* 主线推进表：直接渲染可编辑的卡片视图（文本只作为来源，不再作为主界面） */
+    if (k === 'spine') { renderSpineStep(b, s); return; }
+
     /* 简报 */
     stage.appendChild(briefCard(b));
 
@@ -60,6 +63,63 @@
     if (k === 'book' && text) right.appendChild(planPreview(b));
 
     A.app.streamEl = pre;
+  }
+
+  /* 主线推进表那一环：卡片视图 + AI 原文折叠区 */
+  function renderSpineStep(b, s) {
+    /* 简报 */
+    stage.appendChild(briefCard(b));
+
+    /* 有 AI 原文时，提供一个折叠的"查看原文" */
+    const text = A.docOf(s);
+    if (text) {
+      const srcCard = el('div', 'card');
+      const sh = el('div', 'brief-head');
+      const hw = el('div', 'brief-title');
+      hw.appendChild(el('h3', '', 'AI 生成的原文'));
+      hw.appendChild(el('span', 'sub', LEngine.cw(text) + ' 字 · 稿 ' + (s.sel + 1) + '/' + (s.versions.length || 1)));
+      sh.appendChild(hw);
+      const tog = el('button', 'mini', '展开');
+      sh.appendChild(tog);
+      srcCard.appendChild(sh);
+
+      const body = el('div');
+      body.style.display = 'none';
+      const pre = el('div', 'doc');
+      pre.textContent = text;
+      pre.style.maxHeight = '260px';
+      pre.style.overflow = 'auto';
+      body.appendChild(pre);
+
+      const ops = el('div', 'doc-ops');
+      const syncBtn = el('button', 'mini on', '⇩ 用这份原文重建格子');
+      syncBtn.onclick = () => {
+        if (!confirm('会用上面的原文重新解析成格子。\n标题相同的格子会保留原 ID（单元不失联），其余按位置对应。\n\n继续？')) return;
+        const parsed = LEngine.parseSpine(text);
+        if (!parsed.length) { toast('没解析出格子'); return; }
+        b.spine = GRID.diffWithText(b, parsed);
+        const rep = LEngine.syncUnitsWithSpine(b);
+        Books.pushHistory(b, '按原文重建格子', `新增 ${rep.added} · 更新 ${rep.updated} · 孤立 ${rep.orphaned}`);
+        A.persist(); A.render();
+        toast(`已重建：新增 ${rep.added} · 更新 ${rep.updated}`);
+      };
+      ops.appendChild(syncBtn);
+      const cp = el('button', 'mini', '复制');
+      cp.onclick = () => BOOKUI.copyText(text);
+      ops.appendChild(cp);
+      body.appendChild(ops);
+
+      tog.onclick = () => {
+        const open = body.style.display === 'none';
+        body.style.display = open ? '' : 'none';
+        tog.textContent = open ? '收起' : '展开';
+      };
+      srcCard.appendChild(body);
+      stage.appendChild(srcCard);
+    }
+
+    /* 卡片视图（复用 GRIDUI） */
+    GRIDUI.renderGridBody(b);
   }
 
   function placeholder(k) {
