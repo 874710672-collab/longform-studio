@@ -10,6 +10,8 @@
   function renderFacts() {
     const b = cur();
     if (!b) { A.setView('home'); A.render(); return; }
+    /* 历史数据里可能有重复锚点（旧版本每应用一次就加一条），打开时顺手清掉 */
+    dedupeAnchors(b);
     const f = b.facts || {};
 
     /* 概览 */
@@ -144,16 +146,51 @@
     /* 时间线 */
     const ac = el('div', 'card');
     const ah = el('h3', '', '时间线');
-    ah.appendChild(el('span', 'tag', ((f.anchors || []).length) + ' 个锚点'));
+    const anchors = (f.anchors || []).slice().sort((x, y) => x.unit - y.unit);
+    ah.appendChild(el('span', 'tag', anchors.length + ' 个锚点'));
     ac.appendChild(ah);
-    if (!(f.anchors || []).length) ac.appendChild(el('div', 'hint', '还没有时间锚点'));
-    else (f.anchors || []).slice().reverse().forEach(a => {
-      const row = el('div', 'kv');
-      row.appendChild(el('span', 'sub', '第' + a.unit + '篇'));
-      row.appendChild(el('b', '', a.time));
-      ac.appendChild(row);
-    });
+    ac.appendChild(el('div', 'hint',
+      '每写完一篇，交棒单里的「时间地点」会记成一个锚点。用来看故事的时钟走到哪了——同一个单元只保留一条。'));
+    if (!anchors.length) {
+      ac.appendChild(el('div', 'empty-tip', '还没有时间锚点。生成交棒单并「应用到事实表」后会自动记录。'));
+    } else {
+      const tl = el('div', 'timeline');
+      anchors.forEach((a, i) => {
+        const row = el('div', 'tl-row' + (i === anchors.length - 1 ? ' latest' : ''));
+        const dot = el('span', 'tl-dot');
+        row.appendChild(dot);
+        const body = el('div', 'tl-body');
+        const head = el('div', 'tl-head');
+        head.appendChild(el('b', '', '第' + a.unit + '篇'));
+        head.appendChild(el('span', 'sub', a.event || ''));
+        body.appendChild(head);
+        body.appendChild(el('div', 'tl-time', a.time));
+        row.appendChild(body);
+        const del = el('button', 'tl-del', '×');
+        del.onclick = () => {
+          b.facts.anchors = b.facts.anchors.filter(x => x.unit !== a.unit);
+          A.persist(); A.render();
+          toast('已删除这条时间锚点');
+        };
+        row.appendChild(del);
+        tl.appendChild(row);
+      });
+      ac.appendChild(tl);
+    }
     stage.appendChild(ac);
+  }
+
+  /* 时间线锚点去重：每个单元只保留一条 */
+  function dedupeAnchors(b) {
+    const list = (b.facts && b.facts.anchors) || [];
+    if (!list.length) return 0;
+    const seen = new Map();
+    list.forEach(a => { if (!seen.has(a.unit)) seen.set(a.unit, a); });
+    if (seen.size === list.length) return 0;
+    const removed = list.length - seen.size;
+    b.facts.anchors = [...seen.values()].sort((x, y) => x.unit - y.unit);
+    A.persist();
+    return removed;
   }
 
   /* ---------- 编辑人物 ---------- */
