@@ -56,6 +56,8 @@
       beats: opt.beats || (tier === 's' ? 2 : tier === 'l' ? 8 : 5),
       title: opt.title || ('第' + (idx + 1) + '篇'),
       spineAt: opt.spineAt != null ? opt.spineAt : (opt.kind === 'side' ? -1 : idx),
+      gridId: opt.gridId || '',      // 绑定的推进表格子 id（主线用）
+      orphan: false,                  // 格子已被删掉时置 true
       plants: [], pays: [],
       relayIn: '',
       readerKnowledge: '',
@@ -88,6 +90,8 @@
     if (!Array.isArray(u.plants)) u.plants = [];
     if (!Array.isArray(u.pays)) u.pays = [];
     if (!Array.isArray(u.mergedFrom)) u.mergedFrom = [];
+    if (typeof u.gridId !== 'string') u.gridId = '';
+    if (typeof u.orphan !== 'boolean') u.orphan = false;
     if (typeof u.relayIn !== 'string') u.relayIn = '';
     if (typeof u.stale !== 'boolean') u.stale = false;
     if (!u.steps || typeof u.steps !== 'object') u.steps = {};
@@ -150,6 +154,8 @@
       if (!Array.isArray(b[k])) b[k] = [];
     });
     b.units.forEach(migrateUnit);
+    /* 推进表格子补 id，单元补 gridId（兼容老数据） */
+    if (window.GRID) GRID.migrate(b);
     if (typeof b.fsSeq !== 'number') b.fsSeq = b.foreshadow.length;
     if (!b.level) b.level = 'book';
     if (!b.bookStep) b.bookStep = 'book';
