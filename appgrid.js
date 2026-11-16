@@ -131,7 +131,20 @@
 
   /* ---------- 编辑 ---------- */
   function editCell(b, c) {
+    b.spine = GRID.reindex(b.spine);
+    const total = b.spine.length;
+
     let html = `<h2>编辑第 ${c.step} 格<button class="close">×</button></h2>`;
+
+    /* 位置：可直接改 */
+    html += `<div class="field"><label>位置（改这里可以调整格号顺序）</label>`;
+    html += `<div class="pos-row">`;
+    html += `<span class="pos-lbl">第</span>`;
+    html += `<input type="number" id="posInput" min="1" max="${total}" value="${c.step}">`;
+    html += `<span class="pos-lbl">格（共 ${total} 格）</span>`;
+    html += `<button class="mini" id="posEnd">移到最后</button>`;
+    html += `</div></div>`;
+
     const f = (label, key, val, area, ph) => {
       html += `<div class="field"><label>${label}</label>`;
       if (area) html += `<textarea data-k="${key}" rows="3" placeholder="${ph || ''}">${esc(val || '')}</textarea>`;
@@ -152,16 +165,47 @@
     html += `<div class="sheet-acts"><button class="primary-btn" id="saveCell">保存</button></div>`;
 
     A.sheet(html, (root) => {
+      const posIn = root.querySelector('#posInput');
+      root.querySelector('#posEnd').onclick = () => { posIn.value = total; };
+
       root.querySelector('#saveCell').onclick = () => {
+        /* 1. 保存内容 */
         root.querySelectorAll('[data-k]').forEach(inp => {
           const k = inp.dataset.k;
           c[k] = k === 'beats' ? (parseInt(inp.value, 10) || 5) : inp.value.trim();
         });
+
+        /* 2. 处理位置变化 */
+        const target = Math.max(1, Math.min(total, parseInt(posIn.value, 10) || c.step));
+        if (target !== c.step) {
+          const oldStep = c.step;
+          moveToPosition(b, c, target);
+          /* 位置变了，单元顺序要跟着变，直接同步 */
+          LEngine.syncUnitsWithSpine(b);
+          Books.pushHistory(b, '调整格位', `${c.title}：第${oldStep}格 → 第${target}格`);
+          A.persist(); A.closeSheet(); A.render();
+          toast(`已移到第 ${target} 格，单元顺序已同步`);
+          return;
+        }
+
         Books.pushHistory(b, '编辑格子', `第${c.step}格 ${c.title}`);
         A.persist(); A.closeSheet(); A.render();
         toast('已保存，记得点「同步到单元列表」');
       };
     });
+  }
+
+  /* 把某一格移动到指定序号（1 起） */
+  function moveToPosition(b, cell, target) {
+    const list = GRID.reindex(b.spine);
+    const from = list.findIndex(x => x.id === cell.id);
+    if (from < 0) return;
+    const [item] = list.splice(from, 1);
+    const to = Math.max(1, Math.min(list.length + 1, target)) - 1;
+    list.splice(to, 0, item);
+    /* 重排 order */
+    list.forEach((x, i) => { x.order = i + 1; });
+    b.spine = GRID.reindex(list);
   }
 
   function esc(s) {
@@ -177,9 +221,10 @@
       size: '中', beats: 5, step: 0
     });
     b.spine = GRID.reindex(list);
+    LEngine.syncUnitsWithSpine(b);
     Books.pushHistory(b, '新增格子', '末尾');
     A.persist(); A.render();
-    toast('已新增一格，编辑内容后点同步');
+    toast('已新增一格，对应单元也建好了');
   }
 
   function insertAfter(b, c) {
@@ -192,9 +237,10 @@
     };
     list.splice(idx + 1, 0, nc);
     b.spine = GRID.reindex(list);
+    LEngine.syncUnitsWithSpine(b);
     Books.pushHistory(b, '插入格子', '在' + c.step + '格后');
     A.persist(); A.render();
-    toast('已在后面插入一格');
+    toast('已在后面插入一格，单元已同步');
   }
 
   function moveCell(b, c, dir) {
@@ -207,8 +253,9 @@
     list[i].order = list[j].order;
     list[j].order = tmp;
     b.spine = GRID.reindex(list);
+    LEngine.syncUnitsWithSpine(b);
     A.persist(); A.render();
-    toast('已移动');
+    toast('已移动，单元顺序已同步');
   }
 
   function delCell(b, c) {
@@ -229,6 +276,7 @@
       u.orphan = true;
       u.gridId = '';
     }
+    LEngine.syncUnitsWithSpine(b);
     Books.pushHistory(b, '删除格子', `第${c.step}格 ${c.title}${hasContent ? '（单元保留）' : ''}`);
     A.persist(); A.render();
     toast(hasContent ? '格子已删，单元保留为孤立' : '已删除');
