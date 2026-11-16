@@ -70,6 +70,9 @@
     /* 简报 */
     stage.appendChild(briefCard(b));
 
+    /* 稿件切换条：每稿有独立的格子与单元 */
+    stage.appendChild(draftTabs(b, s));
+
     /* 有 AI 原文时，提供一个折叠的"查看原文" */
     const text = A.docOf(s);
     if (text) {
@@ -120,6 +123,81 @@
 
     /* 卡片视图（复用 GRIDUI） */
     GRIDUI.renderGridBody(b);
+
+    /* 审核意见：卡片视图里也要能写，否则「按意见改」用不了 */
+    stage.appendChild(BOOKUI.feedbackCard(s, 'spine'));
+  }
+
+  /* 稿件切换条 */
+  function draftTabs(b, s) {
+    const c = el('div', 'card');
+    const h = el('h3', '', '推进表稿件');
+    h.appendChild(el('span', 'tag', (s.versions.length || 0) + ' 稿 · 每稿独立单元'));
+    c.appendChild(h);
+    c.appendChild(el('div', 'hint',
+      '每一稿有自己的格子列表和单元列表，互不影响。切换稿件会同时切换下面的格子与单元。'));
+
+    if (!s.versions.length) {
+      c.appendChild(el('div', 'empty-tip', '还没有稿件，先点「生成」。'));
+      return c;
+    }
+
+    const active = DRAFTS.currentDraftId(b);
+    const tabs = el('div', 'draft-tabs');
+    s.versions.forEach((v, i) => {
+      const st = DRAFTS.statsOf(b, v.draftId);
+      const isCur = v.draftId === active;
+      const t = el('button', 'draft-tab' + (isCur ? ' on' : ''));
+      const top = el('div', 'dt-top');
+      top.appendChild(el('b', '', '稿 ' + (i + 1)));
+      if (isCur) top.appendChild(el('span', 'dt-cur', '当前'));
+      t.appendChild(top);
+      t.appendChild(el('div', 'dt-meta', `${st.cells} 格 · ${st.units} 篇`));
+      t.onclick = () => {
+        if (isCur) return;
+        if (b.units.some(u => LEngine.unitHasContent(u))) {
+          if (!confirm(`切到「稿 ${i + 1}」？\n\n当前稿（稿 ${s.sel + 1}）的格子和单元会保存，切回来还在。`)) return;
+        }
+        DRAFTS.stash(b);
+        s.sel = i;
+        const id = DRAFTS.currentDraftId(b);
+        DRAFTS.load(b, id);
+        Books.pushHistory(b, '切换推进稿', `稿 ${i + 1}`);
+        A.persist(); A.render();
+        toast('已切到稿 ' + (i + 1));
+      };
+      tabs.appendChild(t);
+    });
+    c.appendChild(tabs);
+
+    /* 新建一稿（当作新版本占位） */
+    const acts = el('div', 'list-acts');
+    const cp = el('button', 'mini', '⊕ 把当前稿复制成新稿');
+    cp.onclick = () => {
+      const curText = A.docOf(s) || '';
+      s.versions.push({
+        text: curText, at: Date.now(), draftId: DRAFTS.newDraftId(),
+        copiedFrom: s.sel
+      });
+      const newIdx = s.versions.length - 1;
+      DRAFTS.stash(b);
+      s.sel = newIdx;
+      const id = DRAFTS.currentDraftId(b);
+      /* 复制当前格子与单元到新槽 */
+      const src = DRAFTS.slotOf(b, b.activeDraftId, true);
+      DRAFTS.stash(b);
+      const newSlot = DRAFTS.slotOf(b, id, true);
+      newSlot.spine = b.spine.map(x => Object.assign({}, x));
+      newSlot.units = [];
+      b.activeDraftId = id;
+      DRAFTS.load(b, id);
+      Books.pushHistory(b, '复制新稿', '稿 ' + (newIdx + 1));
+      A.persist(); A.render();
+      toast('已复制成稿 ' + (newIdx + 1) + '（格子复制，单元为空）');
+    };
+    acts.appendChild(cp);
+    c.appendChild(acts);
+    return c;
   }
 
   function placeholder(k) {
