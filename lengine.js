@@ -777,12 +777,52 @@
     const cells = GRID.reindex(book.spine || []);
     book.spine = cells;
     const sizeToTier = { 小: 's', 中: 'm', 大: 'l' };
-    const report = { updated: 0, added: 0, orphaned: 0, keptDone: 0, touched: false };
+    const report = { updated: 0, added: 0, orphaned: 0, relinked: 0, keptDone: 0, touched: false };
 
     const cellIds = new Set(cells.map(c => c.id));
+    const mains = (book.units || []).filter(u => u.kind === 'main');
 
-    /* 1. 逐格处理 */
-    cells.forEach((c, i) => {
+    /* ===== 第一步：先把失联单元重连回来，避免后面误判"单元不在" ===== */
+    const claimed = new Set();
+    mains.forEach(u => {
+      if (u.gridId && cellIds.has(u.gridId)) claimed.add(u.gridId);
+    });
+
+    /* (a) 网格 id 已经对的，直接认领 */
+    mains.forEach(u => {
+      if (u.gridId && cellIds.has(u.gridId)) {
+        const c = cells.find(x => x.id === u.gridId);
+        u.spineAt = c.step;
+        u.orphan = false;
+      }
+    });
+
+    /* (b) 失联的按标题 / 序号重连 */
+    mains.forEach(u => {
+      if (u.gridId && cellIds.has(u.gridId)) return;
+
+      const byTitle = cells.filter(c => !claimed.has(c.id) && c.title === u.title);
+      if (byTitle.length === 1) {
+        u.gridId = byTitle[0].id;
+        u.spineAt = byTitle[0].step;
+        u.orphan = false;
+        claimed.add(byTitle[0].id);
+        report.relinked++;
+        report.touched = true;
+        return;
+      }
+      const byStep = cells.find(c => c.step === u.spineAt && !claimed.has(c.id));
+      if (byStep) {
+        u.gridId = byStep.id;
+        u.orphan = false;
+        claimed.add(byStep.id);
+        report.relinked++;
+        report.touched = true;
+      }
+    });
+
+    /* ===== 第二步：逐格处理（此时重连已完成） ===== */
+    cells.forEach(c => {
       const tier = sizeToTier[c.size] || 'm';
       const beats = c.beats || 5;
       let u = (book.units || []).find(x => x.kind === 'main' && x.gridId === c.id);
@@ -793,16 +833,15 @@
         });
         nu.gridId = c.id;
         nu.orphan = false;
+        if (book.activeDraftId) nu.draftId = book.activeDraftId;
         book.units.push(nu);
         report.added++;
         report.touched = true;
         return;
       }
 
-      /* 已有单元 */
       let changed = false;
-      if (u.title !== c.title && !unitHasContent(u)) { u.title = c.title; changed = true; }
-      else if (u.title !== c.title && unitHasContent(u)) { u.title = c.title; changed = true; }
+      if (u.title !== c.title) { u.title = c.title; changed = true; }
 
       if (unitHasContent(u)) {
         u.spineDirty = (u.tier !== tier || u.beats !== beats);
@@ -817,7 +856,7 @@
       if (changed) { report.updated++; report.touched = true; }
     });
 
-    /* 2. 格子没了的单元 → 孤儿 */
+    /* ===== 第三步：仍然接不上的 → 孤儿 ===== */
     (book.units || []).forEach(u => {
       if (u.kind === 'side') return;
       if (!u.gridId || !cellIds.has(u.gridId)) {
@@ -825,21 +864,21 @@
       }
     });
 
-    /* 3. 主线单元按格号排序，让篇号和格号对得上 */
+    /* ===== 第四步：主线单元按格号排序，篇号与格号对齐 ===== */
     const cellOrder = new Map(cells.map((c, i) => [c.id, i]));
-    const mains = (book.units || []).filter(u => u.kind === 'main');
-    const sides = (book.units || []).filter(u => u.kind !== 'main');
-    mains.sort((a, b) => {
+    const sortedMains = (book.units || []).filter(u => u.kind === 'main').sort((a, b) => {
       const ai = a.gridId && cellOrder.has(a.gridId) ? cellOrder.get(a.gridId) : 9999;
       const bi = b.gridId && cellOrder.has(b.gridId) ? cellOrder.get(b.gridId) : 9999;
       if (ai !== bi) return ai - bi;
-      return a.idx - b.idx;
+      return (a.idx || 0) - (b.idx || 0);
     });
-    book.units = mains.concat(sides);
+    const sides = (book.units || []).filter(u => u.kind !== 'main');
+    book.units = sortedMains.concat(sides);
     renumber(book);
 
     return report;
   }
+
 
 
 
