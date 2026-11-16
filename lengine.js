@@ -455,31 +455,12 @@
   /* ================= 解析 ================= */
 
   /* 从人物总表解析出 facts.people */
+  /* 人物总表解析：委托给容错解析器（lcastparse.js） */
   function parseCast(text) {
-    const people = [], world = [];
-    if (!text) return { people, world };
-    text.split('\n').forEach(line => {
-      const s = line.trim().replace(/^[-·*]\s*/, '');
-      if (!s || s.indexOf('｜') < 0 && s.indexOf('|') < 0) return;
-      const f = s.split(/[｜|]/).map(x => x.trim());
-      if (f[0] === '世界规则' && f[1]) { world.push({ rule: f.slice(1).join('｜') }); return; }
-      if (f[0] !== '主要人物' && f.length < 5) return;
-      const off = f[0] === '主要人物' ? 1 : 0;
-      const name = f[off];
-      if (!name || name.length > 6) return;
-      people.push({
-        name,
-        gender: /女/.test(f[off + 1] || '') ? '女' : (/男/.test(f[off + 1] || '') ? '男' : ''),
-        age: (f[off + 2] || '').replace(/岁/, ''),
-        role: f[off + 3] || '',
-        goal: f[off + 4] || '',
-        want: f[off + 5] || '',
-        flaw: f[off + 6] || '',
-        voice: f[off + 7] || '',
-        firstUnit: parseInt(f[off + 8] || '1', 10) || 1
-      });
-    });
-    return { people, world };
+    if (window.CASTPARSE && window.CASTPARSE.parseCast) {
+      return window.CASTPARSE.parseCast(text);
+    }
+    return { people: [], world: [] };
   }
 
   /* 从「出场配置」里解析出本篇新增人物 */
