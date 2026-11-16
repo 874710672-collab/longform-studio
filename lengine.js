@@ -749,6 +749,79 @@
     return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
   }
 
+  /* ================= 单格补全 ================= */
+
+  /* 拼一格的可读描述 */
+  function cellText(c) {
+    if (!c) return '（无）';
+    const L = [`第${c.step}格｜${c.title || '（未命名）'}`];
+    if (c.promote) L.push('  推进：' + c.promote);
+    if (c.change) L.push('  谁因此改变：' + c.change);
+    if (c.mustNot) L.push('  不许碰：' + c.mustNot);
+    L.push(`  规模：${c.size || '中'}｜事件数：${c.beats || 5}`);
+    return L.join('\n');
+  }
+
+  /* 生成单格的完整内容 */
+  async function genCellFill(book, cellId, rough, onDelta, signal) {
+    const P = LP.get();
+    const cells = GRID.reindex(book.spine || []);
+    const idx = cells.findIndex(c => c.id === cellId);
+    if (idx < 0) throw new Error('找不到这一格');
+    const cell = cells[idx];
+    const prev = idx > 0 ? cells[idx - 1] : null;
+    const next = idx < cells.length - 1 ? cells[idx + 1] : null;
+
+    /* 已有内容（用于"保留我写的部分"） */
+    const cur = [];
+    if (cell.promote) cur.push('已写的推进：' + cell.promote);
+    if (cell.change) cur.push('已写的改变：' + cell.change);
+    if (cell.mustNot) cur.push('已写的不许碰：' + cell.mustNot);
+    const curFill = cur.length ? '\n（作者已经写了下面这些，请在此基础上补全，不要推倒重来）\n' + cur.join('\n') : '';
+
+    const cast = (book.facts && book.facts.people || []).slice(0, 8)
+      .map(p => [p.name, p.gender, p.age ? p.age + '岁' : '', p.role].filter(Boolean).join('｜'))
+      .join('\n');
+
+    const user = LP.fill(P.cellFill, {
+      book: bookDoc(book, 'book') || '（还没有全书总纲）',
+      cast: cast || '（还没有人物）',
+      prevCell: prev ? cellText(prev) : '（这是第一格，没有前一格）',
+      nextCell: next ? cellText(next) : '（这是最后一格，没有后一格，不许碰写「无」）',
+      rough: (rough || '').trim() || '（作者没写大意，请根据前后文自行设计）',
+      curFill,
+      step: cell.step,
+      feedback: feedbackOf({ feedback: '' })
+    });
+
+    const out = await API.chat({
+      messages: API.buildMessages(P.system, user), onDelta, signal
+    });
+    return { text: String(out || '').trim(), cell, prev, next, idx };
+  }
+
+  /* 把 AI 返回的单格文本解析成字段 */
+  function parseCellText(text, fallbackStep) {
+    const t = String(text || '');
+    const grab = (label) => {
+      const m = t.match(new RegExp('[-·]\\s*' + label + '\\s*[：:]\\s*([^\\n]+)'));
+      return m ? m[1].trim() : '';
+    };
+    const head = t.match(/第\s*(\d+)\s*格\s*[｜|]\s*(.+)/m);
+    const sizeM = t.match(/建议规模\s*[：:]\s*(小|中|大)/);
+    const beatM = t.match(/建议\s*beat\s*数\s*[：:]\s*(\d+)/i);
+    return {
+      step: head ? +head[1] : fallbackStep,
+      title: head ? head[2].trim().replace(/（已调整）$/, '') : '',
+      promote: grab('推进了什么'),
+      change: grab('谁因此改变'),
+      mustNot: grab('不许碰'),
+      size: sizeM ? sizeM[1] : '中',
+      beats: beatM ? +beatM[1] : 5,
+      adjusted: /（已调整）/.test(head ? head[2] : '')
+    };
+  }
+
   /* ================= 单元列表：重排与依赖闭包 ================= */
 
   /* 判断一个主线单元是否已经有内容（有内容就不能随便覆盖结构） */
@@ -957,6 +1030,7 @@
     progressAuditData, genAudit,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
+    genCellFill, parseCellText, cellText,
     cellOfUnit: (book, u) => GRID.cellOf(book, u),
   };
 })();
