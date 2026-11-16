@@ -17,7 +17,7 @@
 <meta name="description" content="把35万字长篇拆成34个短篇单元逐个生产，交棒单保证连续性">
 <link rel="stylesheet" href="style.css?v=3">
 <link rel="stylesheet" href="style2.css?v=3">
-<link rel="stylesheet" href="ll.css?v=11">
+<link rel="stylesheet" href="ll.css?v=16">
 </head>
 <body>
 <header id="topbar">
@@ -32,6 +32,7 @@
     <button class="ghost-btn" id="btnBook" title="全书层：总纲 / 人物 / 推进表">◈<span class="lbl"> 全书</span></button>
     <button class="ghost-btn" id="btnFacts" title="硬事实表：人物 / 规则 / 伏笔 / 时间线">◉<span class="lbl"> 事实</span></button>
     <button class="ghost-btn" id="btnUnits" title="单元列表">▤<span class="lbl"> 单元</span></button>
+    <button class="ghost-btn" id="btnAudit" title="进度对账：主线有没有跑偏">◎<span class="lbl"> 对账</span></button>
     <button class="ghost-btn" id="btnExport">导出</button>
     <button class="icon-btn" id="btnSet" title="设置">⚙︎</button>
   </div>
@@ -58,17 +59,19 @@
 
 <div id="toast" class="toast" hidden></div>
 
-<script src="store.js?v=11"></script>
-<script src="bookstore.js?v=11"></script>
-<script src="lprompts.js?v=11"></script>
-<script src="api.js?v=11"></script>
-<script src="lengine.js?v=11"></script>
-<script src="lcheck.js?v=11"></script>
-<script src="app.js?v=11"></script>
-<script src="appbook.js?v=11"></script>
-<script src="appunits.js?v=11"></script>
-<script src="appfacts.js?v=11"></script>
-<script src="appunit.js?v=11"></script>
-<script src="appflow.js?v=11"></script>
+<script src="store.js?v=16"></script>
+<script src="bookstore.js?v=16"></script>
+<script src="lprompts.js?v=16"></script>
+<script src="api.js?v=16"></script>
+<script src="lengine.js?v=16"></script>
+<script src="lcheck.js?v=16"></script>
+<script src="lrelaycheck.js?v=16"></script>
+<script src="app.js?v=16"></script>
+<script src="appbook.js?v=16"></script>
+<script src="appunits.js?v=16"></script>
+<script src="appfacts.js?v=16"></script>
+<script src="appunit.js?v=16"></script>
+<script src="appflow.js?v=16"></script>
+<script src="appaudit.js?v=16"></script>
 </body>
 </html>
