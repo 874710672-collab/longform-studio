@@ -508,6 +508,52 @@
     };
   }
 
+  /* 伏笔回收的模糊匹配 */
+  function fuzzyMatchForeshadow(payText, openList) {
+    const norm = (x) => String(x || '').replace(/[的了吗呢吧啊，。、；：！？【】「」“”‘’\s]/g, '');
+    const hay = norm(payText);
+    if (!hay) return [];
+
+    /* 中文二元组 */
+    function bigrams(t) {
+      const out = new Set();
+      for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
+      return out;
+    }
+
+    return openList.filter(f => {
+      const desc = norm(f.desc);
+      if (!desc || desc.length < 2) return false;
+
+      /* a) 完整描述出现在文本里 */
+      if (hay.indexOf(desc) >= 0) return true;
+
+      /* b) 前 4 字或后 4 字 */
+      if (desc.length >= 4) {
+        if (hay.indexOf(desc.slice(0, 4)) >= 0) return true;
+        if (hay.indexOf(desc.slice(-4)) >= 0) return true;
+      }
+
+      /* c) 二元组重合率 ≥ 40% */
+      const a = bigrams(desc);
+      if (!a.size) return false;
+      let hit = 0;
+      a.forEach(g => { if (hay.indexOf(g) >= 0) hit++; });
+      if (hit / a.size >= 0.4) return true;
+
+      /* d) 单字重合率：处理"分开了"的同义改写（来过/曾来过，这边城/边城）
+         去掉常见虚词后，剩余实字有 70% 以上出现在文本里 */
+      const STOP = '的了着过吗呢吧啊和与及或是在有就都也还又很更最这那一个些曾已经曾被把让给向从对为以所之其此该';
+      const solid = desc.split('').filter(c => STOP.indexOf(c) < 0);
+      if (solid.length >= 4) {
+        const sHit = solid.filter(c => hay.indexOf(c) >= 0).length;
+        if (sHit / solid.length >= 0.7) return true;
+      }
+
+      return false;
+    });
+  }
+
   /* 把交棒单回写进书：伏笔表 + 人物状态 + 读者知识 */
   function applyRelay(book, u, relayText) {
     const r = parseRelay(relayText);
@@ -543,17 +589,18 @@
       changed.plants++;
     });
 
-    /* 2. 回收伏笔：按关键词匹配 */
+    /* 2. 回收伏笔：模糊匹配
+       单纯取前 4 个字太脆——模型换个说法就匹配不上。
+       改成：字符级重叠度 + 关键词命中，两者任一达标即视为回收。 */
     const payText = r.pays || '';
     if (payText && payText !== '无') {
-      book.foreshadow.forEach(f => {
-        if (f.status !== 'open') return;
-        const key = f.desc.slice(0, 4);
-        if (key && payText.indexOf(key) >= 0) {
-          f.status = 'paid'; f.paidAt = u.idx + 1;
-          if (u.pays.indexOf(f.id) < 0) u.pays.push(f.id);
-          changed.pays++;
-        }
+      const matched = fuzzyMatchForeshadow(payText, book.foreshadow.filter(f => f.status === 'open'));
+      matched.forEach(f => {
+        f.status = 'paid';
+        f.paidAt = u.idx + 1;
+        f.payNote = payText.slice(0, 40);
+        if (u.pays.indexOf(f.id) < 0) u.pays.push(f.id);
+        changed.pays++;
       });
     }
 
@@ -578,6 +625,61 @@
     }
 
     return { relay: r, changed };
+  }
+
+  /* ================= 进度对账 ================= */
+
+  /* 收集已完成的单元摘要 */
+  function doneSummaries(book) {
+    return (book.units || []).filter(u => {
+      const r = unitDoc(u, 'relay');
+      return r && r.trim();
+    }).map(u => {
+      const r = unitDoc(u, 'relay');
+      const p = parseRelay(r);
+      const title = u.title;
+      const solved = p.solved || '';
+      const must = (p.must || []).slice(0, 2).join('；');
+      return `第${u.idx + 1}篇《${title}》${u.spineAt > 0 ? '（计划对应第' + u.spineAt + '格）' : '（副线）'}\n  本篇完成：${solved || '（未记录）'}${must ? '\n  交棒要点：' + must : ''}`;
+    }).join('\n');
+  }
+
+  function todoSummaries(book) {
+    const doneMax = Math.max(0, ...((book.units || []).filter(u => unitDoc(u, 'relay')).map(u => u.idx + 1)));
+    return (book.spine || []).filter(c => {
+      const u = (book.units || []).find(x => x.kind === 'main' && x.spineAt === c.step);
+      return !u || u.idx + 1 > doneMax;
+    }).map(c => `第${c.step}格｜${c.title}｜${c.promote || ''}`).join('\n');
+  }
+
+  function spinePlain(book) {
+    return (book.spine || []).map(c =>
+      `第${c.step}格｜${c.title}\n  推进：${c.promote || ''}\n  不许碰：${c.mustNot || '无'}`
+    ).join('\n');
+  }
+
+  /* 生成对账单（用 book.steps.audit 存版本） */
+  function progressAuditData(book) {
+    const done = doneSummaries(book);
+    const doneCount = (book.units || []).filter(u => unitDoc(u, 'relay')).length;
+    /* 计划进度 = 已完成单元里，对应主线格子的最大编号 */
+    const doneUnits = (book.units || []).filter(u => unitDoc(u, 'relay'));
+    const planned = doneUnits.reduce((mx, u) => Math.max(mx, u.spineAt > 0 ? u.spineAt : 0), 0);
+    return { done, todo: todoSummaries(book), spine: spinePlain(book), planned, doneCount };
+  }
+
+  async function genAudit(book, onDelta, signal) {
+    const P = LP.get();
+    const d = progressAuditData(book);
+    if (!d.done) throw new Error('还没有写完的单元，没法对账');
+    const user = LP.fill(P.progressAudit, {
+      book: bookDoc(book, 'book'),
+      spine: d.spine || '（推进表为空）',
+      done: d.done,
+      todo: d.todo || '（没有剩余格子）',
+      planned: d.planned
+    });
+    return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
   }
 
   /* ================= 单元列表：重排与依赖闭包 ================= */
@@ -646,7 +748,8 @@
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
     factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
-    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople,
+    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, fuzzyMatchForeshadow,
+    progressAuditData, genAudit,
     renumber, markStale, clearStale, buildUnitsFromSpine, totalWords
   };
 })();
