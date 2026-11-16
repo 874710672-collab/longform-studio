@@ -127,7 +127,8 @@
       steps: {
         book:  { status: 'idle', versions: [], sel: 0, feedback: '' },
         cast:  { status: 'idle', versions: [], sel: 0, feedback: '' },
-        spine: { status: 'idle', versions: [], sel: 0, feedback: '' }
+        spine: { status: 'idle', versions: [], sel: 0, feedback: '' },
+        audit: { status: 'idle', versions: [], sel: 0, feedback: '' }
       }
     };
   }
@@ -153,7 +154,7 @@
     if (!b.level) b.level = 'book';
     if (!b.bookStep) b.bookStep = 'book';
     if (!b.steps || typeof b.steps !== 'object') b.steps = {};
-    BOOK_STEPS.forEach(k => {
+    ['book', 'cast', 'spine', 'audit'].forEach(k => {
       const dd = { status: 'idle', versions: [], sel: 0, feedback: '' };
       const o = b.steps[k] || (b.steps[k] = {});
       Object.keys(dd).forEach(key => { if (o[key] === undefined) o[key] = dd[key]; });
