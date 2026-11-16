@@ -381,9 +381,10 @@
       if (i < LT.BOOK_STEPS.length - 1) A.setCurStep(LT.BOOK_STEPS[i + 1]);
       else {
         /* 推进表通过：按新推进表同步单元列表，然后进单元页 */
-        const cells = LEngine.parseSpine(A.docOf(s));
-        if (cells.length) {
-          b.spine = cells;
+        const parsed = LEngine.parseSpine(A.docOf(s));
+        if (parsed.length) {
+          /* 与现有格子做 ID 比对：标题相同的复用原 id，避免单元失联 */
+          b.spine = GRID.diffWithText(b, parsed);
           const report = LEngine.syncUnitsWithSpine(b);
           if (report.touched) {
             Books.pushHistory(b, '同步推进表',
@@ -393,7 +394,8 @@
             A.toast('推进表没有变化');
           }
         }
-        A.setView('units');
+        /* 进可编辑的表格视图，而不是直接跳单元列表 */
+        A.setView('grid');
       }
       Books.save(b); A.render();
       return;
