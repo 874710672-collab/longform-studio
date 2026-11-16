@@ -95,10 +95,20 @@
       }
     });
 
-    /* 伏笔计划回收单元已过但仍未回收 */
+    /* 伏笔过期：计划回收篇已过 2 篇以上，才算真过期（留一个缓冲） */
     (book.foreshadow || []).forEach(f => {
-      if (f.status === 'open' && f.planPay && f.planPay < u.idx + 1) {
-        issues.push({ level: 'warn', msg: `伏笔 ${f.id}「${f.desc}」计划在第 ${f.planPay} 篇回收，已过期待收` });
+      if (f.status !== 'open' || !f.planPay) return;
+      const late = (u.idx + 1) - f.planPay;
+      if (late >= 2) {
+        issues.push({
+          level: 'error',
+          msg: `伏笔 ${f.id}「${f.desc}」计划第 ${f.planPay} 篇回收，已逾期 ${late} 篇`
+        });
+      } else if (late === 1) {
+        issues.push({
+          level: 'warn',
+          msg: `伏笔 ${f.id}「${f.desc}」上一篇就该收了，确认是否已回收（没收到交棒单里）`
+        });
       }
     });
 
@@ -114,5 +124,29 @@
     return issues;
   }
 
-  window.LCHECK = { checkText, checkUnitAgainstFacts };
+  /* 全书伏笔体检：返回分组结果，供事实表页面用 */
+  function auditForeshadow(book) {
+    const cur = (book.units || []).length;    // 当前已推进到第几篇
+    const list = (book.foreshadow || []).map(f => {
+      let state = 'ok';
+      let note = '';
+      if (f.status === 'paid') { state = 'paid'; note = '第 ' + (f.paidAt || '?') + ' 篇已收'; }
+      else if (!f.planPay) { state = 'nodate'; note = '没写计划回收篇'; }
+      else if (cur - f.planPay >= 2) { state = 'overdue'; note = `逾期 ${cur - f.planPay} 篇`; }
+      else if (cur - f.planPay === 1) { state = 'due'; note = '上一篇就该收'; }
+      else { note = `还剩 ${f.planPay - cur + 1} 篇`; }
+      return Object.assign({}, f, { state, note });
+    });
+    const order = { overdue: 0, due: 1, nodate: 2, ok: 3, paid: 4 };
+    list.sort((a, b) => order[a.state] - order[b.state] || (a.planPay || 0) - (b.planPay || 0));
+    return {
+      list,
+      overdue: list.filter(x => x.state === 'overdue').length,
+      due: list.filter(x => x.state === 'due').length,
+      open: list.filter(x => x.status === 'open').length,
+      paid: list.filter(x => x.status === 'paid').length
+    };
+  }
+
+  window.LCHECK = { checkText, checkUnitAgainstFacts, auditForeshadow };
 })();
