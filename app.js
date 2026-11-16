@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v34-final';
+window.APP_VERSION = 'v36-fbrecall';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -13,7 +13,7 @@ window.APP_VERSION = 'v34-final';
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
     bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
-    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit')
+    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb')
   };
 
   let cur = Books.current();
@@ -180,7 +180,7 @@ window.APP_VERSION = 'v34-final';
 
   /* ---------- 底栏 ---------- */
   function updateDock() {
-    const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove'].forEach(k => els[k].hidden = true);
+    const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove', 'bFb'].forEach(k => { if (els[k]) els[k].hidden = true; });
     if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
@@ -198,6 +198,13 @@ window.APP_VERSION = 'v34-final';
     els.bRevise.hidden = bz || !has;
     els.bRegen.hidden = bz || !has;
     els.bApprove.hidden = bz || !has;
+
+    /* 「意见」唤回按钮：只有在有可写意见的环节、且窗口被关掉时才显示 */
+    if (els.bFb) {
+      const canFb = !!s && (has || !!fb || (s.versions && s.versions.length));
+      const needShow = window.FBFLOAT && FBFLOAT.hasTarget() && !FBFLOAT.isShowing();
+      els.bFb.hidden = !(canFb && needShow);
+    }
 
     els.bGen.textContent = isDraft ? '写这一节' : '生成';
     els.bRevise.textContent = isDraft ? '✎ 改本节' : '✎ 改原稿';
@@ -492,6 +499,12 @@ window.APP_VERSION = 'v34-final';
   $('#btnSet').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
     view = 'settings'; render();
+  };
+  $('#btnFb').onclick = () => {
+    if (window.FBFLOAT) {
+      FBFLOAT.init();
+      FBFLOAT.show();
+    }
   };
   $('#btnStop').onclick = () => {
     if (busy && busy.ctrl) { busy.ctrl.abort(); toast('已停止'); }
