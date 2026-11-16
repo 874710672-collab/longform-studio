@@ -73,6 +73,11 @@
       const chk = LT.capacityCheck(u.beats, u.tier);
       if (chk.level !== 'ok') meta.appendChild(el('span', 'badge ' + chk.level, chk.level === 'dense' ? '偏密' : '偏薄'));
       if (u.stale) meta.appendChild(el('span', 'badge stale-b', '待重跑'));
+      if (u.spineDirty) {
+        const b = el('span', 'badge thin', '计划已变');
+        b.title = '推进表更新过，但这一篇已有内容，档位和事件数没跟着改';
+        meta.appendChild(b);
+      }
       row.appendChild(meta);
 
       /* 进度 */
