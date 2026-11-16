@@ -240,3 +240,19 @@
 @media(min-width:621px){
   #btnExport{display:inline-flex}
 }
+
+/* ---------- 伏笔体检 ---------- */
+.stat.bad-stat b{color:#ff8c64}
+.stat.warn-stat b{color:var(--warn)}
+.fact-item.fs-overdue{border-left-color:#ff8c64;background:rgba(255,120,100,.06)}
+.fact-item.fs-due{border-left-color:var(--warn);background:rgba(255,180,84,.05)}
+.fact-item.fs-ok{border-left-color:rgba(90,209,155,.45)}
+.fact-item.fs-nodate{border-left-color:var(--warn)}
+.fact-item.fs-paid{border-left-color:rgba(90,209,155,.5);opacity:.65}
+
+/* ---------- 对账单 ---------- */
+#btnAudit{display:flex}
+@media(max-width:620px){
+  #topbar .ghost-btn{width:34px}
+  #topbar .ghost-btn .lbl{display:none}
+}
