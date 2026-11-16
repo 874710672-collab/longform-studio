@@ -39,13 +39,15 @@
     bbook.onclick = () => { A.setView('book'); A.render(); };
     const bfacts = el('button', 'mini', '◉ 事实表');
     bfacts.onclick = () => { A.setView('facts'); A.render(); };
+    const bgrid = el('button', 'mini', '▦ 推进表');
+    bgrid.onclick = () => { A.setView('grid'); A.render(); };
     const bn = el('button', 'mini on', '＋ 新建单元');
     bn.onclick = () => addUnit(b);
     const bre = el('button', 'mini', '⚙ 重排');
     bre.onclick = () => openRepair(b);
     const bchk = el('button', 'mini', '▦ 容量体检');
     bchk.onclick = () => capacityReport(b);
-    bar.appendChild(bbook); bar.appendChild(bfacts);
+    bar.appendChild(bbook); bar.appendChild(bfacts); bar.appendChild(bgrid);
     bar.appendChild(bn); bar.appendChild(bre); bar.appendChild(bchk);
     top.appendChild(bar);
     stage.appendChild(top);
@@ -61,7 +63,7 @@
     const list = el('div', 'unit-list');
     units.forEach(u => {
       const t = LEngine.tierOf(u);
-      const row = el('div', 'unit-row' + (u.stale ? ' stale' : '') + (u.kind === 'side' ? ' side' : ''));
+      const row = el('div', 'unit-row' + (u.stale ? ' stale' : '') + (u.kind === 'side' ? ' side' : '') + (u.orphan ? ' orphan' : ''));
       const head = el('div', 'ur-head');
       head.appendChild(el('span', 'ur-n', String(u.idx + 1)));
       head.appendChild(el('span', 'ur-t', u.title));
@@ -69,10 +71,11 @@
       row.appendChild(head);
 
       const meta = el('div', 'ur-meta');
-      meta.appendChild(el('span', '', `${u.kind === 'side' ? '副线' : '第' + u.spineAt + '格'} · ${u.beats} 事件 · 约${t.words}字`));
+      meta.appendChild(el('span', '', `${u.kind === 'side' ? '副线' : (u.orphan ? '无对应格' : '第' + u.spineAt + '格')} · ${u.beats} 事件 · 约${t.words}字`));
       const chk = LT.capacityCheck(u.beats, u.tier);
       if (chk.level !== 'ok') meta.appendChild(el('span', 'badge ' + chk.level, chk.level === 'dense' ? '偏密' : '偏薄'));
       if (u.stale) meta.appendChild(el('span', 'badge stale-b', '待重跑'));
+      if (u.orphan) meta.appendChild(el('span', 'badge dense', '孤立'));
       if (u.spineDirty) {
         const b = el('span', 'badge thin', '计划已变');
         b.title = '推进表更新过，但这一篇已有内容，档位和事件数没跟着改';
