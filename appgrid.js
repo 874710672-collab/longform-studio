@@ -36,6 +36,14 @@
     top.appendChild(bar);
     stage.appendChild(top);
 
+    renderGridBody(b);
+  }
+
+  /* 只渲染卡片列表部分（供全书层的推进表那一环复用） */
+  function renderGridBody(b) {
+    b.spine = GRID.reindex(b.spine || []);
+    const cells = b.spine;
+
     if (!cells.length) {
       const c = el('div', 'card');
       c.appendChild(el('div', 'empty-tip', '还没有格子。点「＋ 新增格子」手动建，或回到全书层用 AI 生成一整份推进表。'));
@@ -298,5 +306,5 @@
     toast(parts.length ? '已同步：' + parts.join(' · ') : '没有变化');
   }
 
-  window.GRIDUI = { renderGrid, cellCard };
+  window.GRIDUI = { renderGrid, renderGridBody, cellCard };
 })();
