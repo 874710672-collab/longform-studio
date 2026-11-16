@@ -107,6 +107,7 @@
 
     /* 摘要 */
     if (c.promote) card.appendChild(el('div', 'gc-promote', c.promote));
+    else if (c.rough) card.appendChild(el('div', 'gc-rough', '大意：' + c.rough));
     const meta = el('div', 'gc-meta');
     meta.appendChild(el('span', 'badge', c.size || '中'));
     meta.appendChild(el('span', 'badge', (c.beats || 5) + ' 事件'));
@@ -144,7 +145,7 @@
 
     let html = `<h2>编辑第 ${c.step} 格<button class="close">×</button></h2>`;
 
-    /* 位置：可直接改 */
+    /* 位置 */
     html += `<div class="field"><label>位置（改这里可以调整格号顺序）</label>`;
     html += `<div class="pos-row">`;
     html += `<span class="pos-lbl">第</span>`;
@@ -153,10 +154,23 @@
     html += `<button class="mini" id="posEnd">移到最后</button>`;
     html += `</div></div>`;
 
+    /* AI 补全区 */
+    html += `<div class="ai-fill-box">
+      <div class="af-head">
+        <span class="af-title">✦ 让 AI 补全这一格</span>
+        <span class="af-hint">写个大概意思就行，它会参考前后格</span>
+      </div>
+      <textarea id="roughIn" rows="2" placeholder="例：主角想进殡仪馆，被门卫拦下，只能在外面等">${esc(c.rough || '')}</textarea>
+      <div class="af-acts">
+        <button class="primary-btn mini" id="aiFill">✦ 补全</button>
+        <span class="af-status" id="afStatus"></span>
+      </div>
+    </div>`;
+
     const f = (label, key, val, area, ph) => {
       html += `<div class="field"><label>${label}</label>`;
-      if (area) html += `<textarea data-k="${key}" rows="3" placeholder="${ph || ''}">${esc(val || '')}</textarea>`;
-      else html += `<input data-k="${key}" value="${esc(val || '')}" placeholder="${ph || ''}">`;
+      if (area) html += `<textarea data-k="${key}" id="fk_${key}" rows="3" placeholder="${ph || ''}">${esc(val || '')}</textarea>`;
+      else html += `<input data-k="${key}" id="fk_${key}" value="${esc(val || '')}" placeholder="${ph || ''}">`;
       html += '</div>';
     };
     f('标题', 'title', c.title, false, '这一格发生什么');
@@ -165,10 +179,10 @@
     f('不许碰', 'mustNot', c.mustNot, false, '后面几格的内容，这一格不许解决');
 
     html += `<div class="grid2">
-      <div class="field"><label>建议规模</label><select data-k="size">
+      <div class="field"><label>建议规模</label><select data-k="size" id="fk_size">
         ${['小', '中', '大'].map(s => `<option value="${s}"${(c.size || '中') === s ? ' selected' : ''}>${s}</option>`).join('')}
       </select></div>
-      <div class="field"><label>建议 beat 数</label><input type="number" data-k="beats" min="1" max="20" value="${c.beats || 5}"></div>
+      <div class="field"><label>建议 beat 数</label><input type="number" data-k="beats" id="fk_beats" min="1" max="20" value="${c.beats || 5}"></div>
     </div>`;
     html += `<div class="sheet-acts"><button class="primary-btn" id="saveCell">保存</button></div>`;
 
@@ -176,19 +190,57 @@
       const posIn = root.querySelector('#posInput');
       root.querySelector('#posEnd').onclick = () => { posIn.value = total; };
 
+      /* ---- AI 补全 ---- */
+      const roughIn = root.querySelector('#roughIn');
+      const fillBtn = root.querySelector('#aiFill');
+      const status = root.querySelector('#afStatus');
+
+      fillBtn.onclick = async () => {
+        const rough = roughIn.value.trim();
+        const mine = {
+          title: root.querySelector('#fk_title').value.trim(),
+          promote: root.querySelector('#fk_promote').value.trim(),
+          change: root.querySelector('#fk_change').value.trim(),
+          mustNot: root.querySelector('#fk_mustNot').value.trim()
+        };
+        fillBtn.disabled = true;
+        status.textContent = '生成中…';
+        try {
+          /* 先把界面上的内容写回格子，作为"已有内容"给 AI 参考 */
+          Object.assign(c, mine);
+          const r = await LEngine.genCellFill(b, c.id, rough, () => {});
+          const p = LEngine.parseCellText(r.text, c.step);
+
+          /* 回填表单（不直接落库，等用户点保存） */
+          root.querySelector('#fk_title').value = p.title || c.title;
+          if (p.promote) root.querySelector('#fk_promote').value = p.promote;
+          if (p.change) root.querySelector('#fk_change').value = p.change;
+          if (p.mustNot) root.querySelector('#fk_mustNot').value = p.mustNot;
+          root.querySelector('#fk_size').value = p.size || '中';
+          root.querySelector('#fk_beats').value = p.beats || 5;
+          /* 记住大意，下次打开还在 */
+          c.rough = rough;
+
+          status.textContent = p.adjusted ? '已补全（和前后格有冲突，已调整）' : '已补全，检查后点保存';
+        } catch (e) {
+          if (e.name !== 'AbortError') status.textContent = '失败：' + e.message;
+          else status.textContent = '已取消';
+        }
+        fillBtn.disabled = false;
+      };
+
+      /* ---- 保存 ---- */
       root.querySelector('#saveCell').onclick = () => {
-        /* 1. 保存内容 */
         root.querySelectorAll('[data-k]').forEach(inp => {
           const k = inp.dataset.k;
           c[k] = k === 'beats' ? (parseInt(inp.value, 10) || 5) : inp.value.trim();
         });
+        c.rough = roughIn.value.trim();
 
-        /* 2. 处理位置变化 */
         const target = Math.max(1, Math.min(total, parseInt(posIn.value, 10) || c.step));
         if (target !== c.step) {
           const oldStep = c.step;
           moveToPosition(b, c, target);
-          /* 位置变了，单元顺序要跟着变，直接同步 */
           LEngine.syncUnitsWithSpine(b);
           Books.pushHistory(b, '调整格位', `${c.title}：第${oldStep}格 → 第${target}格`);
           A.persist(); A.closeSheet(); A.render();
@@ -198,7 +250,7 @@
 
         Books.pushHistory(b, '编辑格子', `第${c.step}格 ${c.title}`);
         A.persist(); A.closeSheet(); A.render();
-        toast('已保存，记得点「同步到单元列表」');
+        toast('已保存');
       };
     });
   }
@@ -211,7 +263,6 @@
     const [item] = list.splice(from, 1);
     const to = Math.max(1, Math.min(list.length + 1, target)) - 1;
     list.splice(to, 0, item);
-    /* 重排 order */
     list.forEach((x, i) => { x.order = i + 1; });
     b.spine = GRID.reindex(list);
   }
