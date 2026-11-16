@@ -139,7 +139,8 @@
         const mk = el('button', 'mini', '标记已收');
         mk.onclick = () => {
           f.status = 'paid';
-          f.paidAt = (b.units.filter(u => LEngine.unitDoc(u, 'relay')).length) || 0;
+          f.paidAt = b.units.reduce((mx, x) =>
+            LEngine.unitDoc(x, 'relay') ? Math.max(mx, x.idx + 1) : mx, 0);
           A.persist(); A.render();
         };
         ops.appendChild(mk);
