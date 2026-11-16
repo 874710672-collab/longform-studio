@@ -68,7 +68,10 @@
 
     if (A.curUnitStep === 'outline' && text) right.appendChild(outlinePlanPreview(text, u));
     if (A.curUnitStep === 'setting' && text) right.appendChild(settingHint(b, u, text));
-    if (A.curUnitStep === 'relay' && text) right.appendChild(relayPreview(b, u, text));
+    if (A.curUnitStep === 'relay' && text) {
+      right.appendChild(AUDITUI.relayCheckPanel(b, u, text));
+      right.appendChild(relayPreview(b, u, text));
+    }
     if (A.curUnitStep === 'polish' && text) right.appendChild(polishChecks(b, u, text));
 
     A.app.streamEl = pre;
