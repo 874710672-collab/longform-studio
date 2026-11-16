@@ -351,3 +351,52 @@
   background:var(--accent);color:#1a1426;font-weight:600;
 }
 .dt-meta{font-size:11px;color:var(--sub)}
+
+/* ---------- 审核意见悬浮窗 ---------- */
+.fb-float{
+  position:fixed;z-index:60;width:290px;
+  background:rgba(28,27,33,.97);
+  border:1px solid rgba(185,166,255,.35);
+  border-radius:14px;
+  box-shadow:0 10px 34px rgba(0,0,0,.5);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  overflow:hidden;
+}
+.fb-float.dragging{box-shadow:0 14px 40px rgba(0,0,0,.62);opacity:.96}
+.fb-float-head{
+  display:flex;align-items:center;gap:6px;
+  padding:9px 10px;cursor:grab;
+  background:rgba(185,166,255,.10);
+  border-bottom:1px solid rgba(185,166,255,.18);
+  user-select:none;-webkit-user-select:none;
+}
+.fb-float.dragging .fb-float-head{cursor:grabbing}
+.fb-drag{color:var(--accent);font-size:13px;letter-spacing:-1px}
+.fb-float-title{flex:1;font-size:13px;font-weight:600;color:var(--accent2)}
+.fb-mini{
+  width:22px;height:22px;border-radius:6px;
+  color:var(--sub);font-size:14px;line-height:1;
+  display:grid;place-items:center;
+}
+.fb-mini:active{background:rgba(255,255,255,.1)}
+.fb-float-body{padding:9px 10px 10px}
+.fb-float.collapsed .fb-float-body{display:none}
+.fb-float textarea{
+  width:100%;min-height:88px;max-height:34vh;
+  background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  padding:8px 9px;font-size:13px;line-height:1.65;color:var(--txt);
+  resize:vertical;font-family:inherit;
+}
+.fb-float textarea:focus{outline:none;border-color:var(--accent)}
+.fb-float-hint{font-size:10px;color:var(--sub);margin-top:6px;line-height:1.5}
+
+/* 稿件删除按钮 */
+.dt-del{
+  position:absolute;top:4px;right:4px;
+  width:20px;height:20px;border-radius:5px;
+  color:var(--sub);font-size:13px;line-height:1;
+  display:grid;place-items:center;
+  opacity:.5;
+}
+.dt-del:active{background:rgba(255,140,100,.2);color:#ff8c64;opacity:1}
+.draft-tab{position:relative}
