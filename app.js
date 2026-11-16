@@ -12,7 +12,7 @@
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
     bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
-    bBook: $('#btnBook'), bFacts: $('#btnFacts')
+    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit')
   };
 
   let cur = Books.current();
@@ -70,6 +70,7 @@
       els.bUnits.hidden = true;
       if (els.bBook) els.bBook.hidden = true;
       if (els.bFacts) els.bFacts.hidden = true;
+      if (els.bAudit) els.bAudit.hidden = true;
       return;
     }
     els.project.textContent = cur.title;
@@ -77,6 +78,9 @@
     if (view === 'unit' && u) {
       const t = LEngine.tierOf(u);
       els.sub.textContent = `第${u.idx + 1}篇 · ${u.kind === 'side' ? '副线' : '主线'} · ${t.name}档 约${t.words}字`;
+    } else if (view === 'audit') {
+      const dn = cur.units.filter(u => LEngine.docOf(u.steps.relay)).length;
+      els.sub.textContent = `进度对账 · 已完成 ${dn} 篇`;
     } else if (view === 'facts') {
       const pn = ((cur.facts && cur.facts.people) || []).length;
       const fn = (cur.foreshadow || []).filter(x => x.status === 'open').length;
@@ -89,6 +93,7 @@
     els.bUnits.hidden = false;
     if (els.bBook) els.bBook.hidden = false;
     if (els.bFacts) els.bFacts.hidden = false;
+    if (els.bAudit) els.bAudit.hidden = false;
   }
 
   /* ---------- 步骤条 ---------- */
@@ -151,13 +156,14 @@
     renderTop();
     renderSteps();
     $('#btnExport').hidden = !(cur && view !== 'home');
-    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts');
+    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit');
     stage.innerHTML = '';
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
     if (!cur) { view = 'home'; renderHome(); return; }
     if (view === 'units') { UNITUI.renderUnitList(); updateDock(); return; }
     if (view === 'facts') { FACTSUI.renderFacts(); updateDock(); return; }
+    if (view === 'audit') { AUDITUI.renderAudit(); updateDock(); return; }
     if (view === 'book') { BOOKUI.renderBook(); updateDock(); return; }
     if (view === 'unit') { UNITUI2.renderUnit(); updateDock(); return; }
   }
@@ -165,7 +171,7 @@
   /* ---------- 底栏 ---------- */
   function updateDock() {
     const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove'].forEach(k => els[k].hidden = true);
-    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts') { hide(); els.dockInfo.textContent = ''; return; }
+    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
     const u = curUnit();
@@ -424,6 +430,11 @@
     const firstEmpty = order.find(k => !docOf(cur.steps[k]));
     curStep = withContent || lastWithContent || firstEmpty || order[0];
     render();
+  };
+  $('#btnAudit').onclick = () => {
+    if (busy) { toast('正在生成，先等一下'); return; }
+    if (!cur) return;
+    view = 'audit'; render();
   };
   $('#btnFacts').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
