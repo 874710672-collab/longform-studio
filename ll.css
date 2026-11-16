@@ -281,3 +281,14 @@
   color:var(--sub);font-size:15px;line-height:1;
 }
 .tl-del:active{background:rgba(255,140,100,.15);color:#ff8c64}
+
+/* ---------- 人物解析预览 ---------- */
+.role-tag{
+  font-size:11px;padding:1px 6px;border-radius:5px;
+  background:rgba(185,166,255,.15);color:var(--accent2);
+  border:1px solid rgba(185,166,255,.28);
+}
+.fact-row .g.missing{
+  background:rgba(255,140,100,.18);color:#ffb49a;
+  border:1px solid rgba(255,140,100,.4);
+}
