@@ -100,15 +100,23 @@
   }
 
   function spineAtBlock(book, u) {
-    const spine = book.spine || [];
+    const spine = GRID.reindex(book.spine || []);
     if (u.kind === 'side') {
       const plan = book.units.filter(x => x.kind === 'side').map(x => `第${x.idx + 1}篇｜${x.title}`);
       return '本单元是副线单元，不占主线推进表的格子。\n' + (plan.length > 1 ? '已计划的副线：\n' + plan.join('\n') : '');
     }
-    const g = spine.find(s => s.step === u.spineAt) || spine[Math.min(u.spineAt, spine.length - 1)];
-    if (!g) return '（主线推进表为空，请先生成）';
-    const prev = spine.find(s => s.step === (g.step - 1));
-    const next = spine.find(s => s.step === (g.step + 1));
+    /* 优先按 gridId 精确匹配 */
+    const g = (u.gridId ? spine.find(s => s.id === u.gridId) : null)
+      || spine.find(s => s.step === u.spineAt);
+    if (!g) {
+      if (u.orphan) {
+        return '【注意】这一篇原本对应的格子已经从推进表里删掉了，现在没有对应的主线格子。请按单元立意里的要求自行处理，或回到推进表重新分配。';
+      }
+      return '（主线推进表为空，请先生成）';
+    }
+    const gi = spine.indexOf(g);
+    const prev = spine[gi - 1];
+    const next = spine[gi + 1];
     const L = [];
     if (prev) L.push(`【上一格】第${prev.step}格｜${prev.title}｜${prev.promote || ''}`);
     L.push(`【本单元对应的主线格子】第${g.step}格｜${g.title}`);
@@ -119,6 +127,8 @@
     if (next) L.push(`【下一格，不许提前解决】第${next.step}格｜${next.title}｜${next.promote || ''}`);
     return L.join('\n');
   }
+
+
 
   /* 上一单元的交棒单：取「最近一个未 stale 且已定稿」的单元 */
   function prevUnitOf(book, u) {
@@ -758,80 +768,90 @@
      - 新推进表里没有的格：移除对应单元（若有内容则保留并标 stale）
      - 新出现的格：新增单元
   */
+  /* 按 gridId 同步单元列表（稳定 ID 模型）
+     - 格子在、单元在：更新标题；有内容的保护结构
+     - 格子在、单元不在：新增单元
+     - 格子不在、单元在：标孤儿（不删，内容不丢）
+  */
   function syncUnitsWithSpine(book) {
-    const cells = book.spine || [];
+    const cells = GRID.reindex(book.spine || []);
+    book.spine = cells;
     const sizeToTier = { 小: 's', 中: 'm', 大: 'l' };
-    const report = { updated: 0, added: 0, removed: 0, keptDone: 0, touched: false };
+    const report = { updated: 0, added: 0, orphaned: 0, keptDone: 0, touched: false };
 
-    const mains = (book.units || []).filter(u => u.kind === 'main');
-    const byCell = new Map();
-    mains.forEach(u => { if (u.spineAt) byCell.set(u.spineAt, u); });
-
-    const cellSteps = new Set(cells.map(c => c.step));
-    const result = [];
+    const cellIds = new Set(cells.map(c => c.id));
 
     /* 1. 逐格处理 */
-    cells.forEach(c => {
+    cells.forEach((c, i) => {
       const tier = sizeToTier[c.size] || 'm';
       const beats = c.beats || 5;
-      const old = byCell.get(c.step);
+      let u = (book.units || []).find(x => x.kind === 'main' && x.gridId === c.id);
 
-      if (!old) {
-        /* 新增格 */
-        const nu = Books.newUnit(book.id, result.length, {
+      if (!u) {
+        const nu = Books.newUnit(book.id, (book.units || []).length, {
           kind: 'main', tier, beats, title: c.title, spineAt: c.step
         });
-        result.push(nu);
+        nu.gridId = c.id;
+        nu.orphan = false;
+        book.units.push(nu);
         report.added++;
         report.touched = true;
         return;
       }
 
-      /* 已有格：更新 */
-      const changed = [];
-      if (old.title !== c.title) { old.title = c.title; changed.push('title'); }
-      if (unitHasContent(old)) {
-        /* 有内容：只改标题，结构保持 */
-        if (changed.length) { report.updated++; report.touched = true; }
-        old.spineDirty = true;   /* 提示：计划和实际可能不一致 */
-        report.keptDone++;
-      } else {
-        if (old.tier !== tier) { old.tier = tier; changed.push('tier'); }
-        if (old.beats !== beats) { old.beats = beats; changed.push('beats'); }
-        if (changed.length) { report.updated++; report.touched = true; }
-        old.spineDirty = false;
-      }
-      result.push(old);
-    });
+      /* 已有单元 */
+      let changed = false;
+      if (u.title !== c.title && !unitHasContent(u)) { u.title = c.title; changed = true; }
+      else if (u.title !== c.title && unitHasContent(u)) { u.title = c.title; changed = true; }
 
-    /* 2. 处理新推进表里消失的格 */
-    mains.forEach(u => {
-      if (cellSteps.has(u.spineAt)) return;
       if (unitHasContent(u)) {
-        /* 有内容，保留，标 stale 提醒 */
-        u.stale = true;
-        u.staleReason = '推进表里已经没有这一格了，但这一篇已有内容';
-        result.push(u);
-        report.keptDone++;
+        u.spineDirty = (u.tier !== tier || u.beats !== beats);
+        if (u.spineDirty) report.keptDone++;
       } else {
-        report.removed++;
+        if (u.tier !== tier) { u.tier = tier; changed = true; }
+        if (u.beats !== beats) { u.beats = beats; changed = true; }
+        u.spineDirty = false;
       }
-      report.touched = true;
+      u.spineAt = c.step;
+      u.orphan = false;
+      if (changed) { report.updated++; report.touched = true; }
     });
 
-    /* 3. 副线单元原样保留（不占格） */
+    /* 2. 格子没了的单元 → 孤儿 */
     (book.units || []).forEach(u => {
-      if (u.kind === 'side' && result.indexOf(u) < 0) result.push(u);
+      if (u.kind === 'side') return;
+      if (!u.gridId || !cellIds.has(u.gridId)) {
+        if (!u.orphan) { u.orphan = true; report.orphaned++; report.touched = true; }
+      }
     });
 
-    book.units = result;
+    /* 3. 主线单元按格号排序，让篇号和格号对得上 */
+    const cellOrder = new Map(cells.map((c, i) => [c.id, i]));
+    const mains = (book.units || []).filter(u => u.kind === 'main');
+    const sides = (book.units || []).filter(u => u.kind !== 'main');
+    mains.sort((a, b) => {
+      const ai = a.gridId && cellOrder.has(a.gridId) ? cellOrder.get(a.gridId) : 9999;
+      const bi = b.gridId && cellOrder.has(b.gridId) ? cellOrder.get(b.gridId) : 9999;
+      if (ai !== bi) return ai - bi;
+      return a.idx - b.idx;
+    });
+    book.units = mains.concat(sides);
     renumber(book);
+
     return report;
   }
 
+
+
+  /* 只按当前数组顺序重新编号，不再自己排序（排序由调用方决定） */
   function renumber(book) {
+    (book.units || []).forEach((u, i) => { u.idx = i; });
+  }
+
+  /* 需要按旧 idx 稳定排序的场景单独用这个 */
+  function sortByOldIdx(book) {
     book.units.sort((a, b) => a.idx - b.idx);
-    book.units.forEach((u, i) => { u.idx = i; });
+    renumber(book);
   }
 
   /* 标记受影响：本单元 + 之后所有主线单元 */
@@ -896,7 +916,8 @@
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, fuzzyMatchForeshadow,
     progressAuditData, genAudit,
-    renumber, markStale, clearStale, buildUnitsFromSpine, totalWords,
+    renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
+    cellOfUnit: (book, u) => GRID.cellOf(book, u),
   };
 })();
