@@ -179,33 +179,100 @@
   function settingHint(b, u, text) {
     const c = el('div', 'card');
     c.appendChild(el('h3', '', '增量校验'));
+
     const known = (b.facts.people || []).map(p => p.name);
     const added = LEngine.parseNewPeople(text);
-    c.appendChild(el('div', 'hint', '已有人物 ' + known.length + ' 个（只读）。本篇新增 ' + added.length + ' 个。'));
-    added.forEach(p => {
-      const row = el('div', 'fact-row');
-      row.appendChild(el('b', '', p.name));
-      row.appendChild(el('span', 'g' + (p.gender === '男' ? 'm' : p.gender === '女' ? 'f' : ''), p.gender || '缺性别'));
-      row.appendChild(el('span', 'sub', [p.age, p.role, p.rel].filter(Boolean).join(' · ')));
-      if (p.voice) row.appendChild(el('div', 'voice', p.voice));
-      c.appendChild(row);
-    });
-    const btn = el('button', 'primary-btn wide', '把新增人物写入事实表');
-    btn.onclick = () => {
-      let n = 0;
+    const newRules = LEngine.parseNewWorldRules(text);
+    const knownRules = (b.facts.world || []).map(w => (typeof w === 'string' ? w : w.rule));
+    /* 过滤掉已经存在的规则（完全相同的文字） */
+    const rulesToAdd = newRules.filter(r => knownRules.indexOf(r.rule) < 0);
+
+    c.appendChild(el('div', 'hint',
+      `已有人物 ${known.length} 个、规则 ${knownRules.length} 条（只读）。本篇新增 ${added.length} 人、${rulesToAdd.length} 条规则。`));
+
+    /* ---------- 新增人物 ---------- */
+    if (added.length) {
+      const sec = el('div', 'inc-sec');
+      const sh = el('div', 'inc-head');
+      sh.appendChild(el('span', 'inc-title', '新增人物'));
+      sh.appendChild(el('span', 'tag', added.length + ' 个'));
+      sec.appendChild(sh);
+
       added.forEach(p => {
-        if (!p.name) return;
-        if ((b.facts.people || []).some(x => x.name === p.name)) return;
-        b.facts.people.push({ name: p.name, gender: p.gender, age: p.age, role: p.role, voice: p.voice, firstUnit: u.idx + 1, status: '' });
-        n++;
+        const row = el('div', 'fact-row');
+        row.appendChild(el('b', '', p.name));
+        row.appendChild(el('span', 'g' + (p.gender === '男' ? 'm' : p.gender === '女' ? 'f' : ''), p.gender || '缺性别'));
+        row.appendChild(el('span', 'sub', [p.age ? p.age + '岁' : '', p.role, p.rel].filter(Boolean).join(' · ')));
+        if (p.voice) row.appendChild(el('div', 'voice', p.voice));
+        sec.appendChild(row);
       });
-      Books.pushHistory(b, '新增人物', `${u.idx + 1}篇 +${n} 人`);
-      A.persist(); A.render();
-      toast(n ? '已写入 ' + n + ' 人' : '没有新人物可写入');
-    };
-    c.appendChild(btn);
+
+      const btnP = el('button', 'primary-btn wide', '把新增人物写入事实表');
+      btnP.onclick = () => {
+        let n = 0;
+        added.forEach(p => {
+          if (!p.name) return;
+          if ((b.facts.people || []).some(x => x.name === p.name)) return;
+          b.facts.people.push({
+            name: p.name, gender: p.gender, age: p.age, role: p.role,
+            voice: p.voice, firstUnit: u.idx + 1, status: ''
+          });
+          n++;
+        });
+        Books.pushHistory(b, '新增人物', `${u.idx + 1}篇 +${n} 人`);
+        A.persist(); A.render();
+        toast(n ? '已写入 ' + n + ' 人' : '没有新人物可写入');
+      };
+      sec.appendChild(btnP);
+      c.appendChild(sec);
+    }
+
+    /* ---------- 新增世界规则 ---------- */
+    if (rulesToAdd.length) {
+      const sec = el('div', 'inc-sec');
+      const sh = el('div', 'inc-head');
+      sh.appendChild(el('span', 'inc-title', '新增世界规则'));
+      sh.appendChild(el('span', 'tag', rulesToAdd.length + ' 条'));
+      sec.appendChild(sh);
+
+      rulesToAdd.forEach(r => {
+        const row = el('div', 'fact-row');
+        row.appendChild(el('span', '', r.rule));
+        sec.appendChild(row);
+      });
+
+      const btnR = el('button', 'primary-btn wide', '把新增规则写入事实表');
+      btnR.onclick = () => {
+        if (!b.facts.world) b.facts.world = [];
+        let n = 0;
+        rulesToAdd.forEach(r => {
+          const exists = (b.facts.world || []).some(w => {
+            const t = typeof w === 'string' ? w : w.rule;
+            return t === r.rule;
+          });
+          if (exists) return;
+          b.facts.world.push({ rule: r.rule });
+          n++;
+        });
+        Books.pushHistory(b, '新增世界规则', `${u.idx + 1}篇 +${n} 条`);
+        A.persist(); A.render();
+        toast(n ? '已写入 ' + n + ' 条规则' : '没有新规则可写入');
+      };
+      sec.appendChild(btnR);
+      c.appendChild(sec);
+    }
+
+    /* ---------- 都没有 ---------- */
+    if (!added.length && !rulesToAdd.length) {
+      const hasSection = /【新增人物】|【新增世界规则】/.test(String(text || ''));
+      c.appendChild(el('div', 'hint', hasSection
+        ? '这一篇没有新增人物，也没有新增规则。'
+        : '没解析出「新增人物」和「新增世界规则」两栏，检查格式是否用了【】标记。'));
+    }
+
     return c;
   }
+
 
   /* ---------- 交棒单预览 ---------- */
   function relayPreview(b, u, text) {
