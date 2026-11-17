@@ -497,6 +497,47 @@
     return added;
   }
 
+  /* 从「出场配置」里解析出本篇新增的世界规则 */
+  function parseNewWorldRules(text) {
+    const rules = [];
+    if (!text) return rules;
+    const m = String(text).match(/【新增世界规则】([\s\S]*?)(?=【|$)/);
+    if (!m) return rules;
+    m[1].split('\n').forEach(line => {
+      let s = line.trim();
+      /* 去掉开头的列表符号 */
+      s = s.replace(/^[-·*•]\s*/, '').trim();
+      /* 去掉编号：支持 1. / 1、 / (1) / （1） / 一、 */
+      let guard = 0;
+      while (guard++ < 3) {
+        const before = s;
+        s = s.replace(/^[(（]\s*\d+\s*[)）]\s*/, '');
+        s = s.replace(/^[(（]\s*[一二三四五六七八九十]+\s*[)）]\s*/, '');
+        s = s.replace(/^\d+\s*[.、)．:：]\s*/, '');
+        s = s.replace(/^[一二三四五六七八九十]+\s*[.、)．:：]\s*/, '');
+        if (s === before) break;
+      }
+      s = s.replace(/^[-·*•]\s*/, '').trim();
+      if (!s) return;
+      /* 整行就是「无」 */
+      if (/^[（(]?无[）)]?[。，、！!\s]*$/.test(s)) return;
+      /* 去掉「规则：」这类前缀 */
+      s = s.replace(/^(世界规则|新增规则|规则)\s*[：:]\s*/, '').trim();
+      /* 成对去掉包裹的引号/书名号 */
+      const pairs = [['「', '」'], ['『', '』'], ['"', '"'], ['‘', '’'], ['“', '”']];
+      pairs.forEach(([a, b]) => {
+        if (s.startsWith(a) && s.endsWith(b) && s.length > a.length + b.length) {
+          s = s.slice(a.length, s.length - b.length).trim();
+        }
+      });
+      /* 单边残留的引号也清掉 */
+      s = s.replace(/^[「『“‘"']+/, '').replace(/[」』”’"']+$/, '').trim();
+      if (s.length < 4) return;
+      rules.push({ rule: s });
+    });
+    return rules;
+  }
+
   /* 从主线推进表解析格子 */
   function parseSpine(text) {
     if (!text) return [];
@@ -1026,7 +1067,7 @@
     factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
-    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, fuzzyMatchForeshadow,
+    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow,
     progressAuditData, genAudit,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
