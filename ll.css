@@ -422,3 +422,9 @@
 
 /* 格子卡片上的大意提示 */
 .gc-rough{font-size:11px;color:var(--accent2);margin-top:5px;line-height:1.5;opacity:.8}
+
+/* ---------- 增量校验分区 ---------- */
+.inc-sec{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+.inc-sec:first-of-type{border-top:none;padding-top:4px}
+.inc-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.inc-title{font-size:13px;font-weight:600;color:var(--accent2)}
