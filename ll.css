@@ -449,3 +449,38 @@
   white-space:nowrap;
 }
 .tl-mini:active{background:rgba(185,166,255,.16);color:var(--accent2)}
+
+/* ---------- 容量体检：已写进度 ---------- */
+.cap-progress{
+  margin:4px 0 14px;padding:12px 13px;border-radius:12px;
+  background:var(--panel2);border:1px solid var(--line);
+}
+.cp-row{display:flex;align-items:baseline;gap:8px;font-size:13px;color:var(--sub)}
+.cp-row b{font-size:19px;color:var(--accent2);font-weight:600}
+.cp-pct{margin-left:auto;font-size:13px;color:var(--ok);font-weight:600}
+.cp-bar{height:6px;border-radius:3px;background:var(--line);margin:9px 0 7px;overflow:hidden}
+.cp-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--ok));border-radius:3px;transition:width .3s}
+.cp-sub{font-size:11px;color:var(--sub)}
+.ok-txt{color:var(--ok) !important}
+
+/* 单篇进度列表 */
+.unit-wlist{display:flex;flex-direction:column;gap:4px;margin-top:8px}
+.uw-row{
+  display:flex;align-items:center;gap:7px;font-size:12px;
+  padding:6px 8px;border-radius:8px;background:var(--panel2);
+  border-left:2px solid var(--line);
+}
+.uw-row.done{border-left-color:var(--ok)}
+.uw-row.doing{border-left-color:var(--accent)}
+.uw-n{
+  width:18px;height:18px;border-radius:5px;flex:0 0 auto;
+  background:var(--panel);display:grid;place-items:center;
+  font-size:10px;color:var(--sub);
+}
+.uw-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uw-s{font-size:10px;color:var(--sub);flex:0 0 auto}
+.uw-row.done .uw-s{color:var(--ok)}
+.uw-row.doing .uw-s{color:var(--accent2)}
+.uw-w{font-size:12px;color:var(--txt);flex:0 0 auto;font-weight:600}
+.uw-row.todo .uw-w{color:var(--sub)}
+.uw-t2{font-size:10px;color:var(--sub);flex:0 0 auto}
