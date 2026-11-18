@@ -391,7 +391,14 @@
     for (let i = startIdx; i < total; i++) {
       if (hooks.cancelled && hooks.cancelled()) throw new Error('已停止');
       const r = await genPart(book, u, i, (d, full) => hooks.onDelta && hooks.onDelta(i, d, full), hooks.signal);
-      u.steps.draft.parts[i] = { title: (plan[i] && plan[i].title) || ('第' + (i + 1) + '节'), body: String(r).trim() };
+      const pTitle = (plan[i] && plan[i].title) || ('第' + (i + 1) + '节');
+      if (u.steps.draft.parts[i]) {
+        u.steps.draft.parts[i].title = pTitle;
+        if (window.PARTVER) PARTVER.write(u.steps.draft.parts[i], String(r).trim(), '自动续写');
+        else u.steps.draft.parts[i].body = String(r).trim();
+      } else {
+        u.steps.draft.parts[i] = { title: pTitle, body: String(r).trim(), versions: [], sel: -1 };
+      }
       u.steps.draft.partIdx = i;
       Books.save(book);
       hooks.onPartDone && hooks.onPartDone(i, u);
