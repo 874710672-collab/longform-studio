@@ -51,9 +51,15 @@
 
     const curPart = d.parts[idx];
     const box = el('div', 'card');
+
+    /* 本节版本切换条 */
+    if (curPart && PARTVER.count(curPart) > 0) {
+      box.appendChild(partVersionBar(b, u, idx, curPart));
+    }
+
     const pre = el('div', 'doc');
     const isStreaming = busy && busy.mode === 'unit-draft' && busy.partIdx === idx;
-    pre.textContent = curPart ? curPart.body : (isStreaming ? '' : '点底部「写这一节」生成。');
+    pre.textContent = curPart ? PARTVER.currentBody(curPart) : (isStreaming ? '' : '点底部「写这一节」生成。');
     if (isStreaming) pre.classList.add('streaming');
     box.appendChild(pre);
     if (curPart && !isStreaming) {
@@ -132,6 +138,107 @@
     right.appendChild(BOOKUI.feedbackCard(d, 'draft'));
 
     A.app.streamEl = pre;
+  }
+
+  /* 某一节的版本切换条 */
+  function partVersionBar(b, u, idx, part) {
+    PARTVER.ensure(part);
+    const n = PARTVER.count(part);
+    const wrap = el('div', 'pv-bar');
+
+    const lbl = el('div', 'pv-label');
+    lbl.appendChild(el('span', '', '本次稿件'));
+    lbl.appendChild(el('span', 'pv-n', n + ' 版历史'));
+    wrap.appendChild(lbl);
+
+    const tabs = el('div', 'pv-tabs');
+
+    /* 当前 */
+    const cur = el('button', 'pv-tab' + (part.sel < 0 ? ' on' : ''));
+    cur.appendChild(el('span', '', '当前'));
+    cur.onclick = () => {
+      if (part.sel >= 0) { part.sel = -1; A.persist(); A.render(); }
+    };
+    tabs.appendChild(cur);
+
+    part.versions.forEach((v, i) => {
+      const t = el('button', 'pv-tab' + (part.sel === i ? ' on' : ''));
+      t.appendChild(el('span', '', '稿 ' + (i + 1)));
+      t.title = v.note || new Date(v.at).toLocaleString('zh-CN');
+      t.onclick = () => {
+        if (part.sel === i) return;
+        PARTVER.pick(part, i);
+        A.persist(); A.render();
+        toast('已切到稿 ' + (i + 1));
+      };
+      tabs.appendChild(t);
+    });
+    wrap.appendChild(tabs);
+
+    /* 提示清理 */
+    if (PARTVER.needsTrim(part)) {
+      const warn = el('div', 'pv-warn');
+      warn.appendChild(el('span', '', `本节已有 ${n} 版历史，建议清理旧稿`));
+      const go = el('button', 'pv-clean', '管理');
+      go.onclick = (ev) => { ev.stopPropagation(); openPartVersions(b, u, idx, part); };
+      warn.appendChild(go);
+      wrap.appendChild(warn);
+    }
+
+    return wrap;
+  }
+
+  /* 版本管理弹窗 */
+  function openPartVersions(b, u, idx, part) {
+    PARTVER.ensure(part);
+    const build = () => {
+      let html = `<h2>第 ${idx + 1} 节 · 历史稿件<button class="close">×</button></h2>`;
+      html += `<div class="hint">共 ${part.versions.length} 版。切换会把内容换成那一版，当前内容会自动存为新的一版。</div>`;
+      html += '<div class="menu-list">';
+      part.versions.forEach((v, i) => {
+        const w = LEngine.cw(v.text);
+        const note = v.note ? ' · ' + v.note : '';
+        const when = v.at ? new Date(v.at).toLocaleString('zh-CN', {month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        html += `<div class="pv-item">
+          <div class="pv-item-t"><b>稿 ${i + 1}</b><span class="sub">${w} 字${note}</span><span class="sub">${when}</span></div>
+          <div class="pv-item-ops">
+            <button class="mini" data-pick="${i}">切到这一版</button>
+            <button class="mini danger-t" data-del="${i}">删除</button>
+          </div>
+        </div>`;
+      });
+      html += '</div>';
+      html += '<div class="sheet-acts"><button class="ghost-btn" id="pvKeep5">只保留最近 5 版</button></div>';
+      A.sheet(html, (root) => {
+        root.querySelectorAll('[data-pick]').forEach(btn => {
+          btn.onclick = () => {
+            const i = +btn.dataset.pick;
+            PARTVER.pick(part, i);
+            A.persist(); A.closeSheet(); A.render();
+            toast('已切到稿 ' + (i + 1));
+          };
+        });
+        root.querySelectorAll('[data-del]').forEach(btn => {
+          btn.onclick = () => {
+            const i = +btn.dataset.del;
+            if (!confirm('删除稿 ' + (i + 1) + '？删除后无法恢复。')) return;
+            PARTVER.removeVersion(part, i);
+            A.persist();
+            A.closeSheet();
+            openPartVersions(b, u, idx, part);
+          };
+        });
+        const keep = root.querySelector('#pvKeep5');
+        if (keep) keep.onclick = () => {
+          if (!confirm('只保留最近 5 版，更早的会被删除。继续？')) return;
+          part.versions = part.versions.slice(-5);
+          part.sel = -1;
+          A.persist(); A.closeSheet(); A.render();
+          toast('已清理');
+        };
+      });
+    };
+    build();
   }
 
   function editPart(b, u, idx, pre) {
@@ -270,11 +377,19 @@
         A.setStream(full); A.updateDock();
       }, ctrl.signal);
       const plan = LEngine.outlinePlan(LEngine.unitDoc(u, 'outline'));
-      d.parts[idx] = {
-        title: (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节'),
-        body: String(out).trim(),
-        issues: LCHECK.checkText(b, u, String(out))
-      };
+      const title = (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节');
+      if (d.parts[idx]) {
+        /* 保留历史版本 */
+        d.parts[idx].title = title;
+        PARTVER.write(d.parts[idx], String(out).trim(), '重新生成本节');
+        d.parts[idx].issues = LCHECK.checkText(b, u, String(out));
+      } else {
+        d.parts[idx] = {
+          title, body: String(out).trim(),
+          versions: [], sel: -1,
+          issues: LCHECK.checkText(b, u, String(out))
+        };
+      }
       d.status = 'ready';
       Books.save(b);
       A.setBusy(null); A.render();
