@@ -175,15 +175,15 @@
     });
     wrap.appendChild(tabs);
 
-    /* 提示清理 */
-    if (PARTVER.needsTrim(part)) {
-      const warn = el('div', 'pv-warn');
-      warn.appendChild(el('span', '', `本节已有 ${n} 版历史，建议清理旧稿`));
-      const go = el('button', 'pv-clean', '管理');
-      go.onclick = (ev) => { ev.stopPropagation(); openPartVersions(b, u, idx, part); };
-      warn.appendChild(go);
-      wrap.appendChild(warn);
-    }
+    /* 管理入口：一直显示，超过 5 版时变黄色警告 */
+    const isOver = PARTVER.needsTrim(part);
+    const warn = el('div', 'pv-warn' + (isOver ? '' : ' quiet'));
+    warn.appendChild(el('span', '',
+      isOver ? `本节已有 ${n} 版历史，建议清理旧稿` : `共 ${n} 版历史`));
+    const go = el('button', 'pv-clean', '管理');
+    go.onclick = (ev) => { ev.stopPropagation(); openPartVersions(b, u, idx, part); };
+    warn.appendChild(go);
+    wrap.appendChild(warn);
 
     return wrap;
   }
@@ -208,7 +208,10 @@
         </div>`;
       });
       html += '</div>';
-      html += '<div class="sheet-acts"><button class="ghost-btn" id="pvKeep5">只保留最近 5 版</button></div>';
+      html += '<div class="sheet-acts">'
+        + '<button class="ghost-btn" id="pvDedupe">去重（合并相同内容）</button>'
+        + '<button class="ghost-btn" id="pvKeep5">只保留最近 5 版</button>'
+        + '</div>';
       A.sheet(html, (root) => {
         root.querySelectorAll('[data-pick]').forEach(btn => {
           btn.onclick = () => {
@@ -228,6 +231,19 @@
             openPartVersions(b, u, idx, part);
           };
         });
+        const ded = root.querySelector('#pvDedupe');
+        if (ded) ded.onclick = () => {
+          const removed = PARTVER.dedupe(part);
+          A.persist();
+          A.closeSheet();
+          if (removed) {
+            toast('已合并 ' + removed + ' 条重复版本');
+            openPartVersions(b, u, idx, part);
+          } else {
+            toast('没有重复版本');
+            A.render();
+          }
+        };
         const keep = root.querySelector('#pvKeep5');
         if (keep) keep.onclick = () => {
           if (!confirm('只保留最近 5 版，更早的会被删除。继续？')) return;
