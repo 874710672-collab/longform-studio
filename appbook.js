@@ -353,6 +353,79 @@
       tr.appendChild(bb);
     });
     tf.appendChild(tr);
+
+    /* 自定义目标字数（单位：万字，10-200） */
+    const customRow = el('div', 'custom-word-row');
+    const isPreset = words.indexOf(b.target) >= 0;
+    const cLab = el('span', 'cw-label', '自定义');
+    const cInp = el('input');
+    cInp.type = 'number';
+    cInp.className = 'cw-input';
+    cInp.min = '10';
+    cInp.max = '200';
+    cInp.step = '1';
+    cInp.placeholder = '38';
+    cInp.value = isPreset ? '' : (Math.round(b.target / 10000) || '');
+    const cUnit = el('span', 'cw-unit', '万字');
+
+    const applyCustom = (silent) => {
+      const raw = cInp.value.trim();
+      if (!raw) {
+        if (!silent) toast('请输入万字数字');
+        return;
+      }
+      const n = Math.round(parseFloat(raw));
+      if (!isFinite(n)) { toast('请输入数字'); return; }
+      if (n < 10 || n > 200) {
+        toast('范围是 10 - 200 万字');
+        /* 回填当前实际值，避免输入框显示的和真实目标不一致 */
+        cInp.value = String(Math.round(b.target / 10000));
+        return;
+      }
+      b.target = n * 10000;
+      A.persist(); A.render();
+      toast('目标改为 ' + n + ' 万字，建议 ' + Math.round(b.target / 11000) + ' 个单元');
+    };
+
+    cInp.onkeydown = (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); cInp.blur(); applyCustom(); }
+    };
+    /* 失焦时若值合法就应用（不弹太多提示） */
+    cInp.onblur = () => {
+      const raw = cInp.value.trim();
+      if (!raw) {
+        cInp.value = isPreset ? '' : String(Math.round(b.target / 10000));
+        return;
+      }
+      const n = Math.round(parseFloat(raw));
+      if (!isFinite(n)) {
+        cInp.value = String(Math.round(b.target / 10000));
+        return;
+      }
+      if (n < 10 || n > 200) {
+        if (n) toast('范围是 10 - 200 万字');
+        cInp.value = String(Math.round(b.target / 10000));
+        return;
+      }
+      if (n * 10000 !== b.target) applyCustom(true);
+    };
+
+    const cBtn = el('button', 'mini cw-btn', '应用');
+    cBtn.onclick = () => applyCustom();
+
+    customRow.appendChild(cLab);
+    customRow.appendChild(cInp);
+    customRow.appendChild(cUnit);
+    customRow.appendChild(cBtn);
+    tf.appendChild(customRow);
+
+    /* 当前目标 + 建议篇数 */
+    const cHint = el('div', 'cw-hint');
+    cHint.textContent = isPreset
+      ? ''
+      : '当前：' + (b.target / 10000).toFixed(0) + ' 万字 · 约 ' + Math.round(b.target / 11000) + ' 篇';
+    if (cHint.textContent) tf.appendChild(cHint);
+
     body.appendChild(tf);
 
     const info = el('div', 'hint');
