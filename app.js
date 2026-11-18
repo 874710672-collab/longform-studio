@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v50-final';
+window.APP_VERSION = 'v51-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -174,6 +174,8 @@ window.APP_VERSION = 'v50-final';
 
   /* ---------- 主渲染 ---------- */
   function render() {
+    /* 记下渲染前的视图，单元列表用它判断是否「刚切入」 */
+    window.__prevView = window.__curView || 'home';
     syncCur();
     /* 先隐藏悬浮意见窗，需要它的页面会在渲染中重新绑定 */
     if (window.FBFLOAT) FBFLOAT.hide();
@@ -183,6 +185,7 @@ window.APP_VERSION = 'v50-final';
     $('#btnExport').hidden = !(cur && view !== 'home');
     $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid' || view === 'chapter');
     stage.innerHTML = '';
+    window.__curView = view;   /* 记录本次渲染的视图，供下次判断 */
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
     if (view === 'backup') { BACKUPUI.renderBackup(); updateDock(); return; }
