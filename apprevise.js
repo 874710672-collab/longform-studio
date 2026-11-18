@@ -120,10 +120,8 @@
         },
         signal: ctrl.signal
       });
-      d.parts[idx] = Object.assign({}, d.parts[idx], {
-        body: String(out).trim(),
-        issues: LCHECK.checkText(b, u, String(out))
-      });
+      PARTVER.write(d.parts[idx], String(out).trim(), '按意见改本节');
+      d.parts[idx].issues = LCHECK.checkText(b, u, String(out));
       Books.save(b);
       A.setBusy(null); A.render();
       A.toast('本节已按意见修改，其它节没动');
@@ -146,11 +144,15 @@
         A.setStream(full); A.updateDock();
       }, ctrl.signal);
       const plan = LEngine.outlinePlan(LEngine.unitDoc(u, 'outline'));
-      d.parts[idx] = {
-        title: (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节'),
-        body: String(out).trim(),
-        issues: LCHECK.checkText(b, u, String(out))
-      };
+      const pTitle = (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节');
+      if (d.parts[idx]) {
+        d.parts[idx].title = pTitle;
+        PARTVER.write(d.parts[idx], String(out).trim(), '按意见重写本节');
+        d.parts[idx].issues = LCHECK.checkText(b, u, String(out));
+      } else {
+        d.parts[idx] = { title: pTitle, body: String(out).trim(), versions: [], sel: -1,
+          issues: LCHECK.checkText(b, u, String(out)) };
+      }
       Books.save(b);
       A.setBusy(null); A.render();
       A.toast('本节已按意见重写');
