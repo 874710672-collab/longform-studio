@@ -372,15 +372,79 @@
     return c;
   }
 
-  function versionTabs(s, onPick) {
+  /* 版本切换条：可删除（带确认） */
+  function versionTabs(s, onPick, opt) {
+    opt = opt || {};
     const vt = el('div', 'vers');
+    const label = opt.label || '稿';
+    const canDelete = s.versions.length > 1;
+
     s.versions.forEach((v, i) => {
-      const t = el('button', 'ver-tab' + (i === s.sel ? ' on' : ''), '稿 ' + (i + 1));
-      t.onclick = () => { s.sel = i; A.persist(); onPick(); };
-      vt.appendChild(t);
+      const wrap = el('div', 'ver-wrap');
+
+      const t = el('button', 'ver-tab' + (i === s.sel ? ' on' : ''), label + ' ' + (i + 1));
+      t.onclick = () => {
+        if (i === s.sel) return;
+        s.sel = i;
+        A.persist();
+        onPick();
+      };
+      wrap.appendChild(t);
+
+      if (canDelete) {
+        const x = el('button', 'ver-del', '×');
+        x.title = '删除' + label + ' ' + (i + 1);
+        x.onclick = (ev) => {
+          ev.stopPropagation();
+          deleteVersion(s, i, onPick, label);
+        };
+        wrap.appendChild(x);
+      }
+
+      vt.appendChild(wrap);
     });
     return vt;
   }
+
+  /* 删除某一版（二次确认） */
+  function deleteVersion(s, idx, onPick, label) {
+    label = label || '稿';
+    if (s.versions.length <= 1) {
+      alert('至少要保留一份，不能删最后一稿。');
+      return;
+    }
+    const v = s.versions[idx];
+    const words = v && v.text ? LEngine.cw(v.text) : 0;
+
+    const first = '删除「' + label + ' ' + (idx + 1) + '」？\n\n' +
+      (words ? '这一份有 ' + words + ' 字内容。删除后无法恢复。' : '这一份还没有内容。');
+    if (!confirm(first)) return;
+
+    if (words > 200) {
+      const typed = prompt(
+        '最后确认：「' + label + ' ' + (idx + 1) + '」有 ' + words + ' 字。\n\n' +
+        '删除后无法找回。建议先「导出」备份。\n\n' +
+        '确认删除请输入「删除」两个字：'
+      );
+      if (typed !== '删除') { toast('已取消'); return; }
+    }
+
+    const wasCurrent = s.sel === idx;
+    s.versions.splice(idx, 1);
+
+    if (wasCurrent) {
+      s.sel = Math.max(0, Math.min(idx, s.versions.length - 1));
+    } else if (s.sel > idx) {
+      s.sel -= 1;
+    }
+    if (!s.versions.length) { s.status = 'idle'; s.sel = 0; }
+
+    Books.pushHistory(A.cur, '删除稿件', `${label} ${idx + 1}`);
+    A.persist();
+    onPick();
+    toast('已删除' + label + ' ' + (idx + 1));
+  }
+
 
   /* 审核意见：现在改为悬浮窗，这里是绑定入口（保留同名以避免改动调用点） */
   function feedbackCard(s, key) {
@@ -533,5 +597,5 @@
     toast('诊断功能待接入，可以先自己读一遍');
   }
 
-  window.BOOKUI = { renderBook, feedbackCard, versionTabs, toggleEdit, copyText };
+  window.BOOKUI = { renderBook, feedbackCard, versionTabs, deleteVersion, toggleEdit, copyText };
 })();
