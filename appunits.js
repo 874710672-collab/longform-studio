@@ -64,6 +64,7 @@
     units.forEach(u => {
       const t = LEngine.tierOf(u);
       const row = el('div', 'unit-row' + (u.stale ? ' stale' : '') + (u.kind === 'side' ? ' side' : '') + (u.orphan ? ' orphan' : ''));
+      row.dataset.unitIdx = String(u.idx);
       const head = el('div', 'ur-head');
       head.appendChild(el('span', 'ur-n', String(u.idx + 1)));
       head.appendChild(el('span', 'ur-t', u.title));
@@ -112,6 +113,106 @@
       list.appendChild(row);
     });
     stage.appendChild(list);
+
+    /* 自动定位到当前进度 */
+    scheduleAutoScroll(b);
+
+    /* 浮动「定位」按钮 */
+    stage.appendChild(gotoFab(b));
+  }
+
+  /* 计算「当前应该定位到哪一篇」 */
+  function targetUnitIdx(b) {
+    const units = b.units || [];
+    if (!units.length) return -1;
+
+    const curU = Books.curUnit(b);
+    /* 有明确打开的单元，就用它 */
+    if (curU) {
+      const finished = curU.steps.polish && curU.steps.polish.status === 'done';
+      if (finished) {
+        /* 跑完了 → 定位到下一篇 */
+        const next = curU.idx + 1;
+        return next < units.length ? next : curU.idx;
+      }
+      return curU.idx;
+    }
+
+    /* 没有打开的单元：找第一个未定稿的 */
+    const firstUndone = units.findIndex(u => !(u.steps.polish && u.steps.polish.status === 'done'));
+    return firstUndone >= 0 ? firstUndone : units.length - 1;
+  }
+
+  /* 只在「从别的页面切入」时自动滚动 */
+  function scheduleAutoScroll(b) {
+    const fromOther = window.__prevView !== 'units';
+    if (!fromOther) return;   // 已经在单元列表里反复渲染，不重置位置
+
+    const target = targetUnitIdx(b);
+    if (target < 0) return;
+
+    /* 等 DOM 布局完成再滚 */
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const st = document.getElementById('stage');
+        if (!st) return;
+        const row = st.querySelector('[data-unit-idx="' + target + '"]');
+        if (!row) return;
+        const top = row.offsetTop - st.clientHeight / 2 + row.offsetHeight / 2;
+        st.scrollTop = Math.max(0, top);
+      });
+    });
+  }
+
+  /* 浮动「定位到当前」按钮 */
+  function gotoFab(b) {
+    const target = targetUnitIdx(b);
+    const units = b.units || [];
+    if (target < 0 || target >= units.length) return document.createDocumentFragment();
+
+    const u = units[target];
+    const wrap = el('div', 'fab-goto');
+
+    /* 文案看「当前实际在进行的那一篇」，不是目标行 */
+    const curU = Books.curUnit(b);
+    const curDone = curU && curU.steps.polish && curU.steps.polish.status === 'done';
+    const showNext = !!curU && curDone;   // 当前那篇跑完了 → 提示下一篇
+    const label = el('span', 'fg-label');
+    label.textContent = (showNext ? '下一篇：第 ' : '正在跑：第 ') + (u.idx + 1) + ' 篇';
+
+    const btn = el('button', 'fg-btn');
+    btn.appendChild(el('span', 'fg-ico', '⌖'));
+    btn.appendChild(el('span', '', '定位'));
+
+    wrap.appendChild(label);
+    wrap.appendChild(btn);
+
+    const doScroll = () => {
+      const st = document.getElementById('stage');
+      if (!st) return;
+      const row = st.querySelector('[data-unit-idx="' + u.idx + '"]');
+      if (!row) return;
+      const top = row.offsetTop - st.clientHeight / 2 + row.offsetHeight / 2;
+      st.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    };
+    btn.onclick = doScroll;
+
+    /* 滚到目标附近就自动隐藏，避免挡视线 */
+    const st = document.getElementById('stage');
+    const checkVisible = () => {
+      const row = st.querySelector('[data-unit-idx="' + u.idx + '"]');
+      if (!row) return;
+      const rect = row.getBoundingClientRect();
+      const stRect = st.getBoundingClientRect();
+      const visible = rect.bottom > stRect.top + 40 && rect.top < stRect.bottom - 40;
+      wrap.classList.toggle('hide', visible);
+    };
+    if (st) {
+      st.addEventListener('scroll', checkVisible, { passive: true });
+      setTimeout(checkVisible, 120);
+    }
+
+    return wrap;
   }
 
   function openUnit(b, u) {
