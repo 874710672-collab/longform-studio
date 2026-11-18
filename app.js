@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v47-custom';
+window.APP_VERSION = 'v49-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -574,6 +574,112 @@ window.APP_VERSION = 'v47-custom';
     bk.onclick = () => { view = 'backup'; render(); };
     vc.appendChild(bk);
     stage.appendChild(vc);
+
+    /* 存储状态 */
+    stage.appendChild(storageCard());
+  }
+
+  /* ---------- 存储状态卡片 ---------- */
+  function storageCard() {
+    const c = el('div', 'card');
+    const h = el('h3', '', '存储');
+    h.appendChild(el('span', 'tag', 'localStorage'));
+    c.appendChild(h);
+
+    const box = el('div', 'st-box');
+    box.appendChild(el('div', 'st-loading', '读取中…'));
+    c.appendChild(box);
+
+    const refresh = async () => {
+      box.innerHTML = '';
+      try {
+        const est = (navigator.storage && navigator.storage.estimate)
+          ? await navigator.storage.estimate() : null;
+        const usage = est ? est.usage : null;
+        const quota = est ? est.quota : null;
+
+        /* 本应用实际占用（算 localStorage 的所有键） */
+        let own = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          const v = localStorage.getItem(k) || '';
+          own += (k.length + v.length) * 2;   // UTF-16 估算
+        }
+
+        const fmt = (b) => {
+          if (b == null) return '—';
+          if (b < 1024) return b + ' B';
+          if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+          if (b < 1024 * 1024 * 1024) return (b / 1024 / 1024).toFixed(2) + ' MB';
+          return (b / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+        };
+
+        const row = (label, val, cls) => {
+          const r = el('div', 'kv');
+          r.appendChild(el('span', '', label));
+          r.appendChild(el('b', cls || '', val));
+          return r;
+        };
+
+        box.appendChild(row('本应用占用', fmt(own)));
+        if (usage != null) box.appendChild(row('该站点已用', fmt(usage)));
+        if (quota != null) box.appendChild(row('可用配额', fmt(quota)));
+
+        if (usage != null && quota) {
+          const pct = Math.min(100, (usage / quota) * 100);
+          const bar = el('div', 'st-bar');
+          const fill = el('i');
+          fill.style.width = pct.toFixed(1) + '%';
+          bar.appendChild(fill);
+          box.appendChild(bar);
+          box.appendChild(el('div', 'st-sub', '已用 ' + pct.toFixed(2) + '% 配额'));
+        }
+
+        /* 持久模式 */
+        const pRow = el('div', 'st-persist');
+        let persisted = null;
+        if (navigator.storage && navigator.storage.persisted) {
+          try { persisted = await navigator.storage.persisted(); } catch (e) {}
+        }
+        const state = el('div', 'st-state' + (persisted ? ' on' : ''));
+        state.textContent = persisted === null
+          ? '不支持查询'
+          : (persisted ? '✓ 已开启持久存储' : '⚠ 未开启（数据可能被系统自动清理）');
+        pRow.appendChild(state);
+
+        if (persisted === false && navigator.storage && navigator.storage.persist) {
+          const btn = el('button', 'primary-btn wide', '申请持久存储');
+          btn.onclick = async () => {
+            btn.disabled = true; btn.textContent = '申请中…';
+            try {
+              const ok = await navigator.storage.persist();
+              toast(ok ? '已开启持久存储' : '系统未批准（添加到主屏后更容易通过）');
+            } catch (e) { toast('申请失败'); }
+            refresh();
+          };
+          pRow.appendChild(btn);
+        }
+        box.appendChild(pRow);
+
+        /* 分节版本提示 */
+        if (cur) {
+          const over = PARTVER.totalOver(cur);
+          if (over > 0) {
+            const w = el('div', 'st-note');
+            w.textContent = '有 ' + over + ' 个分节的历史稿件超过 5 版，建议在正文页清理。';
+            box.appendChild(w);
+          }
+        }
+      } catch (e) {
+        box.appendChild(el('div', 'st-sub', '读取失败：' + e.message));
+      }
+    };
+    setTimeout(refresh, 0);
+
+    const again = el('button', 'ghost-btn wide', '刷新');
+    again.onclick = () => refresh();
+    c.appendChild(again);
+    return c;
   }
 
   /* ---------- 事件绑定 ---------- */
