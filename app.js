@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v43-shelf';
+window.APP_VERSION = 'v45-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -13,7 +13,7 @@ window.APP_VERSION = 'v43-shelf';
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
     bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
-    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb')
+    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb'), bChapter: $('#btnChapter')
   };
 
   let cur = Books.current();
@@ -84,6 +84,7 @@ window.APP_VERSION = 'v43-shelf';
       if (els.bBook) els.bBook.hidden = true;
       if (els.bFacts) els.bFacts.hidden = true;
       if (els.bAudit) els.bAudit.hidden = true;
+      if (els.bChapter) els.bChapter.hidden = true;
       return;
     }
     els.project.textContent = cur.title;
@@ -91,6 +92,9 @@ window.APP_VERSION = 'v43-shelf';
     if (view === 'unit' && u) {
       const t = LEngine.tierOf(u);
       els.sub.textContent = `第${u.idx + 1}篇 · ${u.kind === 'side' ? '副线' : '主线'} · ${t.name}档 约${t.words}字`;
+    } else if (view === 'chapter') {
+      const st = CHAPTER.stats(cur);
+      els.sub.textContent = `章节编排 · ${st.count} 章 · ${st.words.toLocaleString()} 字`;
     } else if (view === 'grid') {
       els.sub.textContent = `主线推进表 · ${(cur.spine || []).length} 格（可编辑）`;
     } else if (view === 'backup') {
@@ -112,6 +116,7 @@ window.APP_VERSION = 'v43-shelf';
     if (els.bBook) els.bBook.hidden = false;
     if (els.bFacts) els.bFacts.hidden = false;
     if (els.bAudit) els.bAudit.hidden = false;
+    if (els.bChapter) els.bChapter.hidden = false;
   }
 
   /* ---------- 步骤条 ---------- */
@@ -176,7 +181,7 @@ window.APP_VERSION = 'v43-shelf';
     renderTop();
     renderSteps();
     $('#btnExport').hidden = !(cur && view !== 'home');
-    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid');
+    $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid' || view === 'chapter');
     stage.innerHTML = '';
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
@@ -186,6 +191,7 @@ window.APP_VERSION = 'v43-shelf';
     if (view === 'facts') { FACTSUI.renderFacts(); updateDock(); return; }
     if (view === 'audit') { AUDITUI.renderAudit(); updateDock(); return; }
     if (view === 'grid') { GRIDUI.renderGrid(); updateDock(); return; }
+    if (view === 'chapter') { CHAPTERUI.renderChapter(); updateDock(); return; }
     if (view === 'book') { BOOKUI.renderBook(); updateDock(); return; }
     if (view === 'unit') { UNITUI2.renderUnit(); updateDock(); return; }
   }
@@ -193,7 +199,7 @@ window.APP_VERSION = 'v43-shelf';
   /* ---------- 底栏 ---------- */
   function updateDock() {
     const hide = () => ['bRevise', 'bRegen', 'bGen', 'bApprove', 'bFb'].forEach(k => { if (els[k]) els[k].hidden = true; });
-    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid') { hide(); els.dockInfo.textContent = ''; return; }
+    if (!cur || view === 'home' || view === 'units' || view === 'settings' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid' || view === 'chapter') { hide(); els.dockInfo.textContent = ''; return; }
 
     const isUnit = view === 'unit';
     const u = curUnit();
@@ -599,6 +605,11 @@ window.APP_VERSION = 'v43-shelf';
     if (busy) { toast('正在生成，先等一下'); return; }
     if (!cur) return;
     view = 'audit'; render();
+  };
+  $('#btnChapter').onclick = () => {
+    if (busy) { toast('正在生成，先等一下'); return; }
+    if (!cur) return;
+    view = 'chapter'; render();
   };
   $('#btnFacts').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
