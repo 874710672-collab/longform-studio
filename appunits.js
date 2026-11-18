@@ -362,14 +362,57 @@
     const total = LEngine.totalWords(b);
     const diff = total - b.target;
 
+    /* 实际已写字数：按定稿优先，没有定稿用正文拼接 */
+    const wOf = (u) => {
+      const p = LEngine.docOf(u.steps.polish);
+      if (p) return LEngine.cw(p);
+      return LEngine.cw(LEngine.joinDraft(u));
+    };
+    const written = b.units.reduce((a, u) => a + wOf(u), 0);
+    const doneUnits = b.units.filter(u => LEngine.unitHasContent(u)).length;
+    const pct = total > 0 ? Math.round((written / total) * 100) : 0;
+    const rest = total - written;
+
     let html = `<h2>容量体检<button class="close">×</button></h2>`;
+
+    /* 实际进度 */
+    html += `<div class="cap-progress">
+      <div class="cp-row">
+        <span>已写</span>
+        <b>${written.toLocaleString()} 字</b>
+        <span class="cp-pct">${pct}%</span>
+      </div>
+      <div class="cp-bar"><i style="width:${Math.min(100, pct)}%"></i></div>
+      <div class="cp-sub">完成 ${doneUnits} / ${b.units.length} 篇 · 还差 ${rest > 0 ? rest.toLocaleString() : 0} 字到规划总量</div>
+    </div>`;
+
     html += `<div class="kv"><span>目标总字数</span><b>${(b.target / 10000).toFixed(0)} 万字</b></div>`;
     html += `<div class="kv"><span>规划总字数</span><b class="${Math.abs(diff) > b.target * 0.12 ? 'warn-txt' : ''}">${(total / 10000).toFixed(1)} 万字</b></div>`;
-    html += `<div class="kv"><span>差额</span><b class="${Math.abs(diff) > b.target * 0.12 ? 'warn-txt' : ''}">${diff > 0 ? '+' : ''}${(diff / 10000).toFixed(1)} 万</b></div>`;
+    html += `<div class="kv"><span>已写总字数</span><b class="ok-txt">${written.toLocaleString()} 字</b></div>`;
+    html += `<div class="kv"><span>规划与目标差额</span><b class="${Math.abs(diff) > b.target * 0.12 ? 'warn-txt' : ''}">${diff > 0 ? '+' : ''}${(diff / 10000).toFixed(1)} 万</b></div>`;
     if (Math.abs(diff) > b.target * 0.12) {
-      html += `<div class="cap-tip dense">总字数偏差超过 12%，建议调整单元数量或档位分配。</div>`;
+      html += `<div class="cap-tip dense">规划总字数和目标偏差超过 12%，建议调整单元数量或档位分配。</div>`;
     }
-    html += '<h3 style="margin-top:18px;font-size:15px">单篇问题</h3>';
+    html += '<h3 style="margin-top:18px;font-size:15px">单篇进度</h3>';
+    html += '<div class="unit-wlist">';
+    b.units.forEach(u => {
+      const w = wOf(u);
+      const tw = LEngine.tierOf(u).words;
+      const has = LEngine.unitHasContent(u);
+      const finished = u.steps.polish.status === 'done';
+      const st = finished ? '定稿' : (has ? '进行中' : '未开始');
+      const cls = finished ? 'done' : (has ? 'doing' : 'todo');
+      html += `<div class="uw-row ${cls}">
+        <span class="uw-n">${u.idx + 1}</span>
+        <span class="uw-t">${u.title || '未命名'}</span>
+        <span class="uw-s">${st}</span>
+        <b class="uw-w">${w ? w.toLocaleString() : '—'}</b>
+        <span class="uw-t2">/ ${tw.toLocaleString()}</span>
+      </div>`;
+    });
+    html += '</div>';
+
+    html += '<h3 style="margin-top:18px;font-size:15px">容量问题</h3>';
     if (!issues.length) html += '<div class="cap-tip ok">所有单元的「事件数 × 字数」都落在合理区间。</div>';
     else {
       html += '<div class="issue-list">';
