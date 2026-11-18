@@ -30,6 +30,8 @@
   /* ================= 分节正文 ================= */
   function renderDraft(b, u) {
     const d = u.steps.draft;
+    /* 兼容旧数据：把未入册的当前内容补录成版本 */
+    (d.parts || []).forEach(p => { if (p) PARTVER.reconcile(p); });
     const plan = LEngine.outlinePlan(LEngine.unitDoc(u, 'outline'));
     const total = plan.length || LEngine.tierOf(u).parts;
     const idx = Math.min(d.partIdx || 0, Math.max(0, total - 1));
@@ -142,29 +144,21 @@
 
   /* 某一节的版本切换条 */
   function partVersionBar(b, u, idx, part) {
-    PARTVER.ensure(part);
+    PARTVER.reconcile(part);
     const n = PARTVER.count(part);
     const wrap = el('div', 'pv-bar');
 
     const lbl = el('div', 'pv-label');
     lbl.appendChild(el('span', '', '本次稿件'));
-    lbl.appendChild(el('span', 'pv-n', n + ' 版历史'));
+    lbl.appendChild(el('span', 'pv-n', n + ' 版'));
     wrap.appendChild(lbl);
 
     const tabs = el('div', 'pv-tabs');
 
-    /* 当前 */
-    const cur = el('button', 'pv-tab' + (part.sel < 0 ? ' on' : ''));
-    cur.appendChild(el('span', '', '当前'));
-    cur.onclick = () => {
-      if (part.sel >= 0) { part.sel = -1; A.persist(); A.render(); }
-    };
-    tabs.appendChild(cur);
-
     part.versions.forEach((v, i) => {
       const t = el('button', 'pv-tab' + (part.sel === i ? ' on' : ''));
       t.appendChild(el('span', '', '稿 ' + (i + 1)));
-      t.title = v.note || new Date(v.at).toLocaleString('zh-CN');
+      t.title = (v.note ? v.note + ' · ' : '') + new Date(v.at || Date.now()).toLocaleString('zh-CN');
       t.onclick = () => {
         if (part.sel === i) return;
         PARTVER.pick(part, i);
