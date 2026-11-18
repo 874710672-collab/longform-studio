@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v49-final';
+window.APP_VERSION = 'v50-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -661,13 +661,39 @@ window.APP_VERSION = 'v49-final';
         }
         box.appendChild(pRow);
 
-        /* 分节版本提示 */
+        /* 分节版本统计与全书去重 */
         if (cur) {
-          const over = PARTVER.totalOver(cur);
-          if (over > 0) {
+          let totalVers = 0, overCount = 0;
+          (cur.units || []).forEach(u => {
+            const parts = (u.steps && u.steps.draft && u.steps.draft.parts) || [];
+            parts.forEach(part => {
+              const n = PARTVER.count(part);
+              totalVers += n;
+              if (PARTVER.needsTrim(part)) overCount++;
+            });
+          });
+
+          const vr = el('div', 'kv');
+          vr.appendChild(el('span', '', '分节历史版本'));
+          vr.appendChild(el('b', '', totalVers + ' 版'));
+          box.appendChild(vr);
+
+          if (overCount > 0) {
             const w = el('div', 'st-note');
-            w.textContent = '有 ' + over + ' 个分节的历史稿件超过 5 版，建议在正文页清理。';
+            w.textContent = '有 ' + overCount + ' 个分节的历史稿件超过 5 版，建议在正文页清理。';
             box.appendChild(w);
+          }
+
+          if (totalVers > 0) {
+            const ded = el('button', 'ghost-btn wide', '全书去重（合并重复的版本）');
+            ded.onclick = () => {
+              if (!confirm('扫描全书分节版本，把内容完全相同的合并成一条。\n\n不会删除任何不同的内容。继续？')) return;
+              const removed = PARTVER.dedupeBook(cur);
+              A.persist();
+              toast(removed ? '已合并 ' + removed + ' 条重复版本' : '没有发现重复版本');
+              refresh();
+            };
+            box.appendChild(ded);
           }
         }
       } catch (e) {
