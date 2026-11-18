@@ -188,6 +188,12 @@
     ac.appendChild(ah);
     ac.appendChild(el('div', 'hint',
       '每写完一篇，交棒单里的「时间地点」会记成一个锚点。用来看故事的时钟走到哪了——同一个单元只保留一条。'));
+
+    const abar = el('div', 'list-acts');
+    const aadd = el('button', 'mini on', '＋ 新增锚点');
+    aadd.onclick = () => editAnchor(b, null);
+    abar.appendChild(aadd);
+    ac.appendChild(abar);
     if (!anchors.length) {
       ac.appendChild(el('div', 'empty-tip', '还没有时间锚点。生成交棒单并「应用到事实表」后会自动记录。'));
     } else {
@@ -203,13 +209,18 @@
         body.appendChild(head);
         body.appendChild(el('div', 'tl-time', a.time));
         row.appendChild(body);
+        const ops = el('div', 'tl-ops');
+        const ed = el('button', 'tl-mini', '编辑');
+        ed.onclick = () => editAnchor(b, a);
         const del = el('button', 'tl-del', '×');
         del.onclick = () => {
+          if (!confirm(`删除第 ${a.unit} 篇的时间锚点？\n\n「${a.time}」`)) return;
           b.facts.anchors = b.facts.anchors.filter(x => x.unit !== a.unit);
           A.persist(); A.render();
           toast('已删除这条时间锚点');
         };
-        row.appendChild(del);
+        ops.appendChild(ed); ops.appendChild(del);
+        row.appendChild(ops);
         tl.appendChild(row);
       });
       ac.appendChild(tl);
@@ -228,6 +239,64 @@
     b.facts.anchors = [...seen.values()].sort((x, y) => x.unit - y.unit);
     A.persist();
     return removed;
+  }
+
+  /* ---------- 编辑 / 新增时间锚点 ---------- */
+  function editAnchor(b, a) {
+    if (!b.facts.anchors) b.facts.anchors = [];
+    const isNew = !a;
+    const maxUnit = (b.units || []).length || 1;
+    const curNo = a ? a.unit : ((b.units || []).filter(u => LEngine.docOf(u.steps.relay)).length || 1);
+
+    let html = `<h2>${isNew ? '新增时间锚点' : '编辑第 ' + a.unit + ' 篇的锚点'}<button class="close">×</button></h2>`;
+    html += `<div class="hint">锚点记录"这一篇结束时故事处于什么时间、什么地点"。同一个单元只保留一条。</div>`;
+
+    html += `<div class="field"><label>第几篇</label>
+      <input type="number" id="ancUnit" min="1" max="${maxUnit + 20}" value="${curNo}"></div>`;
+
+    html += `<div class="field"><label>时间地点</label>
+      <textarea id="ancTime" rows="2" placeholder="例：妖潮攻城日后第三日，城内伤病营">${esc(a ? a.time : '')}</textarea></div>`;
+
+    html += `<div class="field"><label>这一篇解决了什么（可选）</label>
+      <input id="ancEvent" value="${esc(a ? (a.event || '') : '')}" placeholder="例：林雪第一次清醒"></div>`;
+
+    html += `<div class="sheet-acts"><button class="primary-btn" id="saveAnc">保存</button></div>`;
+
+    A.sheet(html, (root) => {
+      const unitIn = root.querySelector('#ancUnit');
+      const timeIn = root.querySelector('#ancTime');
+      const eventIn = root.querySelector('#ancEvent');
+      timeIn.focus();
+
+      root.querySelector('#saveAnc').onclick = () => {
+        const unit = parseInt(unitIn.value, 10);
+        const time = timeIn.value.trim();
+        const event = eventIn.value.trim();
+        if (!unit || unit < 1) { toast('篇号要填正整数'); return; }
+        if (!time) { toast('时间地点不能为空'); return; }
+
+        /* 同一篇只保留一条 */
+        const others = (b.facts.anchors || []).filter(x => x.unit !== (a ? a.unit : -1) && x.unit !== unit);
+        const rec = { unit, time, event };
+
+        if (isNew) {
+          /* 新增时如果篇号已存在，覆盖 */
+          const existIdx = others.findIndex(x => x.unit === unit);
+          if (existIdx >= 0) others[existIdx] = rec;
+          else others.push(rec);
+          Books.pushHistory(b, '新增时间锚点', `第${unit}篇`);
+          toast(existIdx >= 0 ? '该篇已有锚点，已更新' : '已添加锚点');
+        } else {
+          others.push(rec);
+          Books.pushHistory(b, '编辑时间锚点', `第${unit}篇`);
+          toast('已保存');
+        }
+
+        others.sort((x, y) => x.unit - y.unit);
+        b.facts.anchors = others;
+        A.persist(); A.closeSheet(); A.render();
+      };
+    });
   }
 
   /* ---------- 编辑 / 新增世界规则 ---------- */
