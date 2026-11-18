@@ -6,8 +6,7 @@
     head: document.getElementById('fbFloatHead'),
     body: document.getElementById('fbFloatBody'),
     ta: document.getElementById('fbFloatTa'),
-    toggle: document.getElementById('fbFloatToggle'),
-    close: document.getElementById('fbFloatClose')
+    toggle: document.getElementById('fbFloatToggle')
   });
 
   let curStepRef = null;     // 当前绑定的 step 对象
@@ -117,7 +116,7 @@
       /* DOM 由 index.html 提供，这里兜底创建 */
       build();
     }
-    const { box, head, ta, toggle, close: closeBtn } = els();
+    const { box, head, ta, toggle } = els();
     if (!box || box.dataset.ready) return;
     box.dataset.ready = '1';
 
@@ -176,11 +175,7 @@
       const collapsed = box.classList.contains('collapsed');
       collapse(!collapsed);
     });
-    if (closeBtn) closeBtn.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      close();
-    });
+
 
     /* 输入即保存 */
     ta.addEventListener('input', () => {
@@ -216,7 +211,6 @@
         <span class="fb-drag">⠿</span>
         <span class="fb-float-title">审核意见</span>
         <button class="fb-mini" id="fbFloatToggle">▾</button>
-        <button class="fb-mini" id="fbFloatClose">×</button>
       </div>
       <div class="fb-float-body" id="fbFloatBody">
         <textarea id="fbFloatTa" placeholder="例：反派动机太弱，要写成他当年被主角父亲救过一次…"></textarea>
