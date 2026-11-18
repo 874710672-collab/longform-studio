@@ -764,3 +764,47 @@
 .cw-unit{font-size:12px;color:var(--sub)}
 .cw-btn{margin-left:auto}
 .cw-hint{font-size:11px;color:var(--accent2);margin-top:6px}
+
+/* ---------- 分节版本切换 ---------- */
+.pv-bar{margin-bottom:10px;padding-bottom:10px;border-bottom:1px dashed var(--line)}
+.pv-label{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.pv-label span:first-child{font-size:12px;color:var(--sub)}
+.pv-n{font-size:10px;color:var(--accent2);background:rgba(185,166,255,.14);
+  padding:1px 6px;border-radius:5px}
+.pv-tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.pv-tab{
+  flex:0 0 auto;font-size:12px;padding:5px 11px;border-radius:8px;
+  background:var(--panel2);border:1px solid var(--line);color:var(--sub);
+  white-space:nowrap;
+}
+.pv-tab.on{background:var(--accent);color:#1a1426;border-color:var(--accent);font-weight:600}
+.pv-warn{
+  display:flex;align-items:center;gap:8px;
+  margin-top:8px;padding:7px 9px;border-radius:8px;
+  font-size:11px;color:#ffd39a;
+  background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.28);
+}
+.pv-warn span{flex:1}
+.pv-clean{
+  flex:0 0 auto;font-size:11px;padding:3px 9px;border-radius:6px;
+  background:rgba(255,180,84,.18);color:#ffb454;
+}
+.pv-item{
+  padding:9px 10px;border-radius:9px;background:var(--panel2);margin-bottom:6px;
+}
+.pv-item-t{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.pv-item-t b{font-size:13px}
+.pv-item-ops{display:flex;gap:6px}
+
+/* ---------- 存储状态 ---------- */
+.st-box{margin-top:8px}
+.st-loading{font-size:12px;color:var(--sub);padding:8px 0}
+.st-bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden;margin:9px 0 6px}
+.st-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--ok));border-radius:3px;transition:width .3s}
+.st-sub{font-size:11px;color:var(--sub);margin-bottom:6px}
+.st-persist{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+.st-state{font-size:12px;padding:8px 10px;border-radius:8px;margin-bottom:8px;
+  background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.28);color:#ffd39a}
+.st-state.on{background:rgba(90,209,155,.1);border-color:rgba(90,209,155,.3);color:#9ee5c2}
+.st-note{font-size:11px;color:#ffd39a;margin-top:10px;padding:7px 9px;border-radius:8px;
+  background:rgba(255,180,84,.08);border:1px solid rgba(255,180,84,.24);line-height:1.6}
