@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v42-wordcount';
+window.APP_VERSION = 'v43-shelf';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -263,53 +263,150 @@ window.APP_VERSION = 'v42-wordcount';
     view = 'home';
     renderTop();
     const list = Books.all();
-    const head = el('div', 'card');
-    const h = el('h3', '', '我的长篇');
-    h.appendChild(el('span', 'tag', list.length ? '共 ' + list.length + ' 本' : '还没有'));
-    head.appendChild(h);
-    const nb = el('button', 'primary-btn wide', '＋ 新建长篇');
-    nb.onclick = createBook;
-    head.appendChild(nb);
-    const bkBtn = el('button', 'ghost-btn wide', '⤓ 备份与恢复');
-    bkBtn.onclick = () => { view = 'backup'; render(); };
+
+    /* 顶部：标题 + 备份入口 */
+    const head = el('div', 'shelf-head');
+    const hl = el('div', 'sh-left');
+    hl.appendChild(el('h2', 'sh-title', '我的书架'));
+    hl.appendChild(el('span', 'sh-sub', list.length ? '共 ' + list.length + ' 本' : '还没有书'));
+    head.appendChild(hl);
+    const bkBtn = el('button', 'shelf-tool', '⤓ 备份');
+    bkBtn.onclick = () => { view = 'backup'; render(); }; 
     head.appendChild(bkBtn);
     stage.appendChild(head);
 
-    if (!list.length) {
-      const c = el('div', 'card');
-      c.appendChild(el('div', 'empty-tip', '一本书 = 一条主线 + 30 个左右的短篇单元。\n先从「全书总纲」开始，它会带你往下走。'));
-      stage.appendChild(c);
-      return;
-    }
+    /* 书架网格 */
+    const shelf = el('div', 'shelf');
 
-    const pl = el('div', 'plist');
-    list.forEach(b => {
-      const it = el('div', 'pitem');
-      it.appendChild(el('div', 'pt', b.title));
-      const done = b.units.filter(u => u.steps.polish.status === 'done').length;
-      const stale = b.units.filter(u => u.stale).length;
-      const meta = el('div', 'pm');
-      meta.appendChild(el('span', '', `${b.units.length} 篇 · 定稿 ${done}`));
-      meta.appendChild(el('span', '', `目标 ${(b.target / 10000).toFixed(0)} 万`));
-      if (stale) meta.appendChild(el('span', 'warn-txt', `待重跑 ${stale}`));
-      meta.appendChild(el('span', '', fmtTime(b.updatedAt)));
-      it.appendChild(meta);
-      const acts = el('div', 'pa');
-      const open = el('button', 'mini on', '打开');
-      open.onclick = () => openBook(b.id);
-      const del = el('button', 'mini', '删除');
-      del.onclick = () => {
-        if (!confirm('删除《' + b.title + '》？正文会一起删掉，建议先导出。')) return;
-        Books.remove(b.id);
-        if (cur && cur.id === b.id) cur = null;
-        render();
-      };
-      acts.appendChild(open); acts.appendChild(del);
-      it.appendChild(acts);
-      pl.appendChild(it);
-    });
-    stage.appendChild(pl);
+    /* 新建封面（虚线 + 号） */
+    const add = el('button', 'book-add');
+    add.appendChild(el('div', 'ba-plus', '＋'));
+    add.appendChild(el('div', 'ba-text', '新建长篇'));
+    add.onclick = createBook;
+    shelf.appendChild(add);
+
+    /* 每本书一张封面 */
+    list.forEach(b => shelf.appendChild(bookCover(b)));
+
+    stage.appendChild(shelf);
+
+    if (!list.length) {
+      const tip = el('div', 'shelf-tip');
+      tip.textContent = '一本书 = 一条主线 + 30 个左右的短篇单元。先从「全书总纲」开始。';
+      stage.appendChild(tip);
+    }
   }
+
+  /* ---------- 单本书封面 ---------- */
+  function bookCover(b) {
+    const done = (b.units || []).filter(u => u.steps && u.steps.polish && u.steps.polish.status === 'done').length;
+    const total = (b.units || []).length;
+    const stale = (b.units || []).filter(u => u.stale).length;
+
+    /* 进度：定稿数 / 总篇数 */
+    let written = 0;
+    (b.units || []).forEach(u => {
+      const p = LEngine.docOf(u.steps.polish);
+      written += p ? LEngine.cw(p) : LEngine.cw(LEngine.joinDraft(u));
+    });
+    const pct = total ? Math.round(done / total * 100) : 0;
+
+    /* 书脊色：按 id 稳定生成 */
+    const hue = hashHue(b.id || b.title || 'x');
+
+    const card = el('div', 'book');
+    card.style.setProperty('--h', hue);
+
+    /* 封面主体 */
+    const cover = el('div', 'bk-cover');
+    const spine = el('div', 'bk-spine');
+    cover.appendChild(spine);
+
+    const inner = el('div', 'bk-inner');
+    const t = el('div', 'bk-title', b.title || '未命名长篇');
+    inner.appendChild(t);
+    if (b.brief && b.brief.genre) inner.appendChild(el('div', 'bk-genre', b.brief.genre));
+    cover.appendChild(inner);
+
+    if (stale) cover.appendChild(el('div', 'bk-badge', stale + ' 待重跑'));
+    card.appendChild(cover);
+
+    /* 封面下方信息 */
+    const info = el('div', 'bk-info');
+    const line1 = el('div', 'bi-line');
+    line1.appendChild(el('span', 'bi-main', done + ' / ' + total + ' 篇定稿'));
+    line1.appendChild(el('span', 'bi-sub', (b.target / 10000).toFixed(0) + ' 万字'));
+    info.appendChild(line1);
+
+    const bar = el('div', 'bi-bar');
+    const fill = el('i');
+    fill.style.width = pct + '%';
+    bar.appendChild(fill);
+    info.appendChild(bar);
+
+    info.appendChild(el('div', 'bi-foot', written ? written.toLocaleString() + ' 字' : '未开始'));
+    card.appendChild(info);
+
+    /* 操作 */
+    const acts = el('div', 'bk-acts');
+    const open = el('button', 'bk-open', '打开');
+    open.onclick = () => openBook(b.id);
+    const del = el('button', 'bk-del', '⋯');
+    del.title = '更多';
+    del.onclick = (e) => {
+      e.stopPropagation();
+      bookMenu(b, () => { if (cur && cur.id === b.id) cur = null; render(); });
+    };
+    acts.appendChild(open); acts.appendChild(del);
+    card.appendChild(acts);
+
+    card.onclick = (e) => {
+      if (e.target.closest('button')) return;
+      openBook(b.id);
+    };
+    return card;
+  }
+
+  /* 书封颜色：稳定的色相 */
+  function hashHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+
+  /* 书的更多操作 */
+  function bookMenu(b, after) {
+    let html = '<h2>' + (b.title || '未命名长篇') + '<button class="close">×</button></h2>';
+    html += '<div class="menu-list">';
+    html += '<button class="menu-item" data-a="open">📖 打开</button>';
+    html += '<button class="menu-item" data-a="rename">✎ 重命名</button>';
+    html += '<button class="menu-item danger" data-a="del">🗑 删除这本书</button>';
+    html += '</div>';
+    sheet(html, (root) => {
+      root.querySelectorAll('[data-a]').forEach(btn => {
+        btn.onclick = () => {
+          const a = btn.dataset.a;
+          if (a === 'open') { closeSheet(); openBook(b.id); return; }
+          if (a === 'rename') {
+            closeSheet();
+            const t = prompt('书名', b.title || '');
+            if (t && t.trim()) {
+              b.title = t.trim();
+              Books.save(b); render();
+            }
+            return;
+          }
+          if (a === 'del') {
+            closeSheet();
+            if (!confirm('删除《' + b.title + '》？\n\n正文会一起删掉，建议先导出备份。')) return;
+            Books.remove(b.id);
+            if (after) after();
+          }
+        };
+      });
+    });
+  }
+
 
   function createBook() {
     const b = Books.newBook();
