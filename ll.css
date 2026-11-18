@@ -484,3 +484,126 @@
 .uw-w{font-size:12px;color:var(--txt);flex:0 0 auto;font-weight:600}
 .uw-row.todo .uw-w{color:var(--sub)}
 .uw-t2{font-size:10px;color:var(--sub);flex:0 0 auto}
+
+/* ================= 书架（主页面） ================= */
+.shelf-head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:4px 2px 14px;
+}
+.sh-left{display:flex;align-items:baseline;gap:9px;min-width:0}
+.sh-title{font-size:19px;font-weight:700;margin:0;letter-spacing:.5px}
+.sh-sub{font-size:12px;color:var(--sub)}
+.shelf-tool{
+  font-size:12px;padding:6px 11px;border-radius:9px;
+  background:var(--panel);border:1px solid var(--line);color:var(--sub);
+  flex:0 0 auto;
+}
+.shelf-tool:active{background:rgba(185,166,255,.14);color:var(--accent2)}
+
+.shelf{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(155px,1fr));
+  gap:20px 14px;
+  padding:2px 2px 24px;
+}
+
+/* ---------- 一本书 ---------- */
+.book{display:flex;flex-direction:column;gap:7px;cursor:pointer;min-width:0}
+
+.bk-cover{
+  position:relative;aspect-ratio:3/4;border-radius:6px 11px 11px 6px;
+  overflow:hidden;
+  background:
+    linear-gradient(152deg,
+      hsl(var(--h) 42% 30%) 0%,
+      hsl(var(--h) 38% 22%) 46%,
+      hsl(var(--h) 34% 16%) 100%);
+  box-shadow:
+    0 6px 16px rgba(0,0,0,.42),
+    inset -1px 0 0 rgba(255,255,255,.06);
+  display:flex;
+  transition:transform .16s, box-shadow .16s;
+}
+.book:active .bk-cover{transform:scale(.975);box-shadow:0 3px 9px rgba(0,0,0,.5)}
+
+/* 书脊 */
+.bk-spine{
+  position:absolute;left:0;top:0;bottom:0;width:9px;
+  background:linear-gradient(90deg,
+    rgba(0,0,0,.5) 0%,
+    rgba(0,0,0,.16) 55%,
+    rgba(255,255,255,.10) 100%);
+  pointer-events:none;
+}
+
+.bk-inner{
+  flex:1;min-width:0;
+  padding:16px 12px 13px 19px;
+  display:flex;flex-direction:column;gap:6px;
+  justify-content:flex-start;
+}
+.bk-title{
+  font-size:14px;font-weight:600;line-height:1.42;
+  color:hsl(var(--h) 30% 94%);
+  word-break:break-word;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+}
+.bk-genre{
+  font-size:10px;color:hsl(var(--h) 26% 76%);
+  padding:2px 7px;border-radius:4px;align-self:flex-start;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.14);
+  margin-top:auto;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.bk-badge{
+  position:absolute;top:8px;right:8px;
+  font-size:9px;padding:2px 6px;border-radius:5px;
+  background:rgba(255,180,84,.92);color:#3a2400;font-weight:600;
+}
+
+.bk-info{display:flex;flex-direction:column;gap:5px;padding:0 2px}
+.bi-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.bi-main{font-size:11px;color:var(--txt)}
+.bi-sub{font-size:10px;color:var(--sub);flex:0 0 auto}
+.bi-bar{height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.bi-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--ok));border-radius:2px}
+.bi-foot{font-size:10px;color:var(--sub);min-height:13px}
+
+.bk-acts{display:flex;gap:6px}
+.bk-open{
+  flex:1;font-size:12px;padding:7px 0;border-radius:8px;
+  background:rgba(185,166,255,.16);color:var(--accent2);
+  border:1px solid rgba(185,166,255,.28);
+}
+.bk-open:active{background:rgba(185,166,255,.28)}
+.bk-del{
+  width:34px;font-size:15px;color:var(--sub);border-radius:8px;
+  border:1px solid var(--line);background:var(--panel);
+}
+.bk-del:active{background:rgba(255,140,100,.16);color:#ff8c64}
+
+/* ---------- 新建（虚线空封面） ---------- */
+.book-add{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;aspect-ratio:3/4;border-radius:6px 11px 11px 6px;
+  border:1.6px dashed rgba(185,166,255,.42);
+  background:rgba(185,166,255,.035);
+  color:var(--accent2);
+  transition:background .16s, border-color .16s;
+}
+.book-add:active{background:rgba(185,166,255,.12);border-color:var(--accent)}
+.ba-plus{font-size:32px;line-height:1;font-weight:300;opacity:.85}
+.ba-text{font-size:12px;letter-spacing:.5px}
+
+.shelf-tip{
+  font-size:12px;color:var(--sub);line-height:1.8;
+  padding:0 4px 20px;text-align:center;
+}
+
+/* 窄屏适配 */
+@media(max-width:380px){
+  .shelf{grid-template-columns:repeat(2,1fr);gap:14px 10px}
+  .bk-title{font-size:13px}
+}
