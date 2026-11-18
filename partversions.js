@@ -14,13 +14,9 @@
     return part;
   }
 
-  /* 当前显示的正文：优先用 sel 指向的版本 */
+  /* 当前显示的正文：始终读 body（sel 只表示"当前对应哪一版"，不参与取文本） */
   function currentBody(part) {
     if (!part) return '';
-    if (Array.isArray(part.versions) && part.versions.length) {
-      const v = part.versions[part.sel];
-      if (v) return v.text || '';
-    }
     return part.body || '';
   }
 
@@ -44,8 +40,9 @@
     ensure(part);
     snapshot(part, note);
     part.body = String(newBody || '');
-    /* 写完后 sel 指向"当前"—— 用一个哨兵表示 */
-    part.sel = -1;
+    /* 新内容和某一历史版相同，就把 sel 指过去，不再新增 */
+    const sameIdx = part.versions.findIndex(v => normText(v.text) === normText(part.body));
+    part.sel = sameIdx >= 0 ? sameIdx : -1;
   }
 
   /* 版本数（不含当前） */
@@ -70,20 +67,60 @@
   }
 
   /* 切到某一版：把它的文本变成当前 body，旧的当前内容仍留在 versions 里 */
+  /* 切到某一版：只把 body 换成那一版的文本，sel 记录当前对应哪一版。
+     不产生新版本，来回切换多少次都不会增加。 */
   function pick(part, i) {
     if (!part || !Array.isArray(part.versions)) return false;
+    if (i === -1) {
+      part.sel = -1;
+      return true;
+    }
     const v = part.versions[i];
     if (!v) return false;
-    /* 当前内容如果和要切换的不同，先存起来 */
-    const cur = part.body || '';
-    const last = part.versions[part.versions.length - 1];
-    if (cur.trim() && (!last || last.text !== cur)) {
-      part.versions.push({ text: cur, at: Date.now(), note: '切换前' });
-      while (part.versions.length > MAX_KEEP) part.versions.shift();
-    }
-    part.body = v.text;
-    part.sel = -1;
+    part.body = v.text || '';
+    part.sel = i;
     return true;
+  }
+
+  /* 去重：内容完全相同的版本只保留一条（保留最新的位置） */
+  function dedupe(part) {
+    if (!part || !Array.isArray(part.versions) || part.versions.length < 2) return 0;
+    const seen = new Map();   // text -> 最后出现的索引
+    part.versions.forEach((v, i) => { seen.set(normText(v.text), i); });
+    if (seen.size === part.versions.length) return 0;
+    const before = part.versions.length;
+    const keep = [];
+    const added = new Set();
+    part.versions.forEach((v, i) => {
+      const key = normText(v.text);
+      /* 只保留最后一次出现的那份 */
+      if (seen.get(key) === i && !added.has(key)) {
+        keep.push(v);
+        added.add(key);
+      }
+    });
+    part.versions = keep;
+    /* sel 位置可能失效 */
+    if (part.sel >= keep.length) part.sel = -1;
+    /* 如果当前 body 和某一版相同，把 sel 指到那一版 */
+    const sameIdx = keep.findIndex(v => normText(v.text) === normText(part.body));
+    if (sameIdx >= 0) part.sel = sameIdx;
+    else if (part.sel === -1 && sameIdx < 0) part.sel = -1;
+    return before - keep.length;
+  }
+
+  function normText(t) {
+    return String(t == null ? '' : t).replace(/\s+/g, '').trim();
+  }
+
+  /* 全书去重：返回总清除数 */
+  function dedupeBook(book) {
+    let n = 0;
+    (book.units || []).forEach(u => {
+      const parts = (u.steps && u.steps.draft && u.steps.draft.parts) || [];
+      parts.forEach(p => { n += dedupe(p); });
+    });
+    return n;
   }
 
   /* 全部次数统计（用于提示） */
@@ -96,5 +133,5 @@
     return n;
   }
 
-  window.PARTVER = { ensure, currentBody, snapshot, write, count, needsTrim, removeVersion, pick, totalOver, SOFT_LIMIT };
+  window.PARTVER = { ensure, currentBody, snapshot, write, count, needsTrim, removeVersion, pick, totalOver, dedupe, dedupeBook, SOFT_LIMIT };
 })();
