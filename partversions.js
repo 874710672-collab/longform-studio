@@ -10,8 +10,34 @@
   function ensure(part) {
     if (!part) return null;
     if (!Array.isArray(part.versions)) part.versions = [];
-    if (typeof part.sel !== 'number') part.sel = 0;
+    if (typeof part.sel !== 'number') part.sel = -1;
     return part;
+  }
+
+  /* 迁移：把"藏在 body 里但没入册"的内容补录进去 */
+  function reconcile(part) {
+    if (!part) return 0;
+    ensure(part);
+    const cur = part.body || '';
+    if (!cur.trim()) return 0;
+    const idx = part.versions.findIndex(v => normText(v.text) === normText(cur));
+    if (idx >= 0) {
+      part.sel = idx;
+      return 0;
+    }
+    part.versions.push({ text: cur, at: Date.now(), note: '补录' });
+    part.sel = part.versions.length - 1;
+    return 1;
+  }
+
+  /* 全书迁移 */
+  function reconcileBook(book) {
+    let n = 0;
+    (book.units || []).forEach(u => {
+      const parts = (u.steps && u.steps.draft && u.steps.draft.parts) || [];
+      parts.forEach(p => { n += reconcile(p); });
+    });
+    return n;
   }
 
   /* 当前显示的正文：始终读 body（sel 只表示"当前对应哪一版"，不参与取文本） */
@@ -21,28 +47,44 @@
   }
 
   /* 把当前 body 存成一份版本（在写入新内容之前调用） */
+  /* 把当前 body 入册（如果还没在列表里） */
   function snapshot(part, note) {
     if (!part) return;
     ensure(part);
     const cur = part.body || '';
-    if (!cur.trim()) return;       // 空的不存
-    /* 如果和最后一份相同，不重复存 */
-    const last = part.versions[part.versions.length - 1];
-    if (last && last.text === cur) return;
+    if (!cur.trim()) return;
+    if (part.versions.some(v => normText(v.text) === normText(cur))) return;
     part.versions.push({ text: cur, at: Date.now(), note: note || '' });
-    /* 硬上限：超出时丢最旧的 */
     while (part.versions.length > MAX_KEEP) part.versions.shift();
   }
 
   /* 写入新正文：先存旧的，再替换 */
+  /* 写入新内容：当前内容入册，新内容也入册，sel 指向新的那一条。
+     这样 body 永远等于 versions[sel].text，切换时不会丢东西。 */
   function write(part, newBody, note) {
     if (!part) return;
     ensure(part);
-    snapshot(part, note);
-    part.body = String(newBody || '');
-    /* 新内容和某一历史版相同，就把 sel 指过去，不再新增 */
-    const sameIdx = part.versions.findIndex(v => normText(v.text) === normText(part.body));
-    part.sel = sameIdx >= 0 ? sameIdx : -1;
+    const incoming = String(newBody || '');
+
+    /* 先把当前 body 入册（如果它还没在列表里） */
+    const cur = part.body || '';
+    if (cur.trim() && !part.versions.some(v => normText(v.text) === normText(cur))) {
+      part.versions.push({ text: cur, at: Date.now(), note: '' });
+    }
+
+    /* 新内容如果和最后一条相同，直接指过去，不重复入册 */
+    const last = part.versions[part.versions.length - 1];
+    if (last && normText(last.text) === normText(incoming)) {
+      part.body = incoming;
+      part.sel = part.versions.length - 1;
+      return;
+    }
+
+    part.versions.push({ text: incoming, at: Date.now(), note: note || '' });
+    while (part.versions.length > MAX_KEEP) part.versions.shift();
+
+    part.body = incoming;
+    part.sel = part.versions.length - 1;
   }
 
   /* 版本数（不含当前） */
@@ -71,12 +113,9 @@
      不产生新版本，来回切换多少次都不会增加。 */
   function pick(part, i) {
     if (!part || !Array.isArray(part.versions)) return false;
-    if (i === -1) {
-      part.sel = -1;
-      return true;
-    }
     const v = part.versions[i];
     if (!v) return false;
+    /* 只换指针和镜像，不产生新数据 */
     part.body = v.text || '';
     part.sel = i;
     return true;
@@ -133,5 +172,5 @@
     return n;
   }
 
-  window.PARTVER = { ensure, currentBody, snapshot, write, count, needsTrim, removeVersion, pick, totalOver, dedupe, dedupeBook, SOFT_LIMIT };
+  window.PARTVER = { ensure, currentBody, snapshot, write, count, needsTrim, removeVersion, pick, totalOver, dedupe, dedupeBook, reconcile, reconcileBook, SOFT_LIMIT };
 })();
