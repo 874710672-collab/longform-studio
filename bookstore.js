@@ -120,6 +120,8 @@
       brief: { genre: '', tags: '', idea: '', pov: '第三人称', style: '', avoid: '' },
       facts: { people: [], world: [], items: [], anchors: [] },
       spine: [],
+      stages: [],               // 三级推进（固定 3 个）
+      volumes: [],              // 卷结构（含所属级与格范围）
       foreshadow: [],
       units: [],
       readerKnowledge: [],
@@ -152,7 +154,7 @@
     ['people', 'world', 'items', 'anchors'].forEach(k => {
       if (!Array.isArray(b.facts[k])) b.facts[k] = [];
     });
-    ['spine', 'foreshadow', 'units', 'readerKnowledge', 'history'].forEach(k => {
+    ['spine', 'foreshadow', 'units', 'readerKnowledge', 'history', 'stages', 'volumes'].forEach(k => {
       if (!Array.isArray(b[k])) b[k] = [];
     });
     b.units.forEach(migrateUnit);
