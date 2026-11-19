@@ -865,3 +865,18 @@
 .fs-match.ok{background:rgba(90,209,155,.1);color:#9ee5c2;border:1px solid rgba(90,209,155,.28)}
 .fs-match.warn{background:rgba(255,180,84,.1);color:#ffd39a;border:1px solid rgba(255,180,84,.28)}
 .fs-match.bad{background:rgba(255,120,100,.1);color:#ffb49a;border:1px solid rgba(255,120,100,.3)}
+
+/* ---------- 底栏是 position:fixed，给 stage 补足底部留白 ---------- */
+#stage{
+  padding-bottom: calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* 底部无操作栏的页面（首页/单元列表等）不需要额外留白 */
+body.dock-hidden #stage,
+#dock.empty ~ #stage{
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+}
+@media(min-width:860px){
+  #stage{ padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
+  body.dock-hidden #stage,
+  #dock.empty ~ #stage{ padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important; }
+}
