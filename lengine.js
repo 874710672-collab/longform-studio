@@ -612,6 +612,60 @@
   }
 
   /* 伏笔回收的模糊匹配 */
+  /* 从文本里提取伏笔编号，规范化成 F01 形式 */
+  function extractFsIds(text) {
+    const t = String(text || '');
+    const ids = new Set();
+    /* 匹配 F1 / F01 / f01 / Ｆ01（全角） */
+    const re = /[FfＦ]\s*(\d{1,3})/g;
+    let m;
+    while ((m = re.exec(t))) {
+      const n = parseInt(m[1], 10);
+      if (n > 0) ids.add('F' + String(n).padStart(2, '0'));
+    }
+    return [...ids];
+  }
+
+  /* 伏笔匹配（编号优先，描述兜底）
+     返回 { matched: [...], byId: [...], byText: [...], unknownIds: [...], alreadyPaid: [...] }
+  */
+  function matchForeshadow(payText, openList, allList) {
+    const t = String(payText || '').trim();
+    const out = { matched: [], byId: [], byText: [], unknownIds: [], alreadyPaid: [] };
+    if (!t || t === '无') return out;
+
+    const all = allList || openList || [];
+    const open = openList || [];
+    const ids = extractFsIds(t);
+    const used = new Set();
+
+    /* 1. 编号优先 */
+    ids.forEach(id => {
+      const hit = open.find(f => f.id === id);
+      if (hit) {
+        out.byId.push(hit);
+        used.add(hit.id);
+        return;
+      }
+      /* 不 open 的：检查是不是已经收过了 */
+      const paidOne = all.find(f => f.id === id);
+      if (paidOne && paidOne.status === 'paid') out.alreadyPaid.push(id);
+      else if (!paidOne) out.unknownIds.push(id);
+    });
+
+    /* 2. 描述兜底（跳过已被编号认领的） */
+    const rest = open.filter(f => !used.has(f.id));
+    if (rest.length) {
+      fuzzyMatchForeshadow(t, rest).forEach(f => {
+        out.byText.push(f);
+        used.add(f.id);
+      });
+    }
+
+    out.matched = out.byId.concat(out.byText);
+    return out;
+  }
+
   function fuzzyMatchForeshadow(payText, openList) {
     const norm = (x) => String(x || '').replace(/[的了吗呢吧啊，。、；：！？【】「」“”‘’\s]/g, '');
     const hay = norm(payText);
@@ -701,7 +755,19 @@
        改成：字符级重叠度 + 关键词命中，两者任一达标即视为回收。 */
     const payText = r.pays || '';
     if (payText && payText !== '无') {
-      const matched = fuzzyMatchForeshadow(payText, book.foreshadow.filter(f => f.status === 'open'));
+      const mres = matchForeshadow(
+        payText,
+        book.foreshadow.filter(f => f.status === 'open'),
+        book.foreshadow
+      );
+      /* 记录匹配情况，供界面提示 */
+      u.payMatch = {
+        byId: mres.byId.map(f => f.id),
+        byText: mres.byText.map(f => f.id),
+        alreadyPaid: mres.alreadyPaid,
+        unknownIds: mres.unknownIds
+      };
+      const matched = mres.matched;
       matched.forEach(f => {
         f.status = 'paid';
         f.paidAt = u.idx + 1;
@@ -1074,7 +1140,7 @@
     factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
-    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow,
+    parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
     progressAuditData, genAudit,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
