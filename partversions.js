@@ -15,6 +15,8 @@
   }
 
   /* 迁移：把"藏在 body 里但没入册"的内容补录进去 */
+  /* 只用于旧数据迁移：把"藏在 body 里但没入册"的内容补录一次。
+     正常渲染不再调用（避免手动编辑被误判为新版本）。 */
   function reconcile(part) {
     if (!part) return 0;
     ensure(part);
