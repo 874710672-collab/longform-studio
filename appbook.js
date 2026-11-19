@@ -293,10 +293,31 @@
         if (phs && phs.length) {
           const phBox = el('div', 'vol-phases');
           phs.forEach(ph => {
-            const tag = el('span', 'vol-phase');
-            tag.title = ph.note || '';
-            tag.textContent = '阶段' + ph.no + ' ' + ph.name + '（' + ph.fromStep + '-' + ph.toStep + '）';
-            phBox.appendChild(tag);
+            const card = el('div', 'vol-phase-card');
+            const head = el('div', 'vpc-head');
+            head.appendChild(el('span', 'vpc-no', '阶段' + ph.no));
+            head.appendChild(el('span', 'vpc-name', ph.name || ''));
+            head.appendChild(el('span', 'vpc-range', ph.fromStep + '-' + ph.toStep + '格'));
+            card.appendChild(head);
+            if (ph.goal) {
+              const l = el('div', 'vpc-line');
+              l.appendChild(el('span', 'vpc-tag', '目标'));
+              l.appendChild(el('span', 'vpc-txt', ph.goal));
+              card.appendChild(l);
+            }
+            if (ph.block) {
+              const l = el('div', 'vpc-line');
+              l.appendChild(el('span', 'vpc-tag', '阻力'));
+              l.appendChild(el('span', 'vpc-txt', ph.block));
+              card.appendChild(l);
+            }
+            if (ph.note) {
+              const l = el('div', 'vpc-line');
+              l.appendChild(el('span', 'vpc-tag', '说明'));
+              l.appendChild(el('span', 'vpc-txt', ph.note));
+              card.appendChild(l);
+            }
+            phBox.appendChild(card);
           });
           info.appendChild(phBox);
         }
@@ -401,7 +422,9 @@
           <input type="number" class="ph-to" min="1" value="${ph.toStep}" style="width:64px">
           <input class="ph-name" value="${esc(ph.name || '')}" placeholder="阶段名" style="flex:1">
         </div>
-        <input class="ph-note" value="${esc(ph.note || '')}" placeholder="这一阶段主角在做什么、卡在哪（可留空）">
+        <div class="ph-row2"><span class="ph-tag">目标</span><input class="ph-goal" value="${esc(ph.goal || '')}" placeholder="这一阶段结束时主角达成什么 / 跌到哪"></div>
+        <div class="ph-row2"><span class="ph-tag">阻力</span><input class="ph-block" value="${esc(ph.block || '')}" placeholder="这几格具体卡住主角的人或事"></div>
+        <div class="ph-row2"><span class="ph-tag">说明</span><input class="ph-note" value="${esc(ph.note || '')}" placeholder="场面背景（可留空）"></div>
       </div>`;
     });
     html += `</div>`;
@@ -447,6 +470,8 @@
             fromStep: Number.isFinite(fv) ? fv : 0,
             toStep: Number.isFinite(tv) ? tv : 0,
             name: pe.querySelector('.ph-name').value.trim() || ('阶段' + (i + 1)),
+            goal: (pe.querySelector('.ph-goal') || {}).value ? pe.querySelector('.ph-goal').value.trim() : '',
+            block: (pe.querySelector('.ph-block') || {}).value ? pe.querySelector('.ph-block').value.trim() : '',
             note: pe.querySelector('.ph-note').value.trim()
           });
         });
