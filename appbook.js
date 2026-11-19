@@ -287,6 +287,19 @@
         const sub = el('div', 'vol-sub');
         sub.textContent = '第' + v.fromStep + '-' + v.toStep + '格 · ' + (v.goal || '（无目标）');
         info.appendChild(sub);
+
+        /* 卷内三阶段 */
+        const phs = (v.phases && v.phases.length) ? v.phases : LEngine.autoPhases(v);
+        if (phs && phs.length) {
+          const phBox = el('div', 'vol-phases');
+          phs.forEach(ph => {
+            const tag = el('span', 'vol-phase');
+            tag.title = ph.note || '';
+            tag.textContent = '阶段' + ph.no + ' ' + ph.name + '（' + ph.fromStep + '-' + ph.toStep + '）';
+            phBox.appendChild(tag);
+          });
+          info.appendChild(phBox);
+        }
         row.appendChild(info);
 
         const ops = el('div', 'vol-ops');
@@ -353,9 +366,38 @@
     </div>`;
     html += `<div class="field"><label>本卷目标</label><textarea id="vGoal" rows="2">${esc(v.goal || '')}</textarea></div>`;
     html += `<div class="field"><label>本卷矛盾</label><textarea id="vConflict" rows="2">${esc(v.conflict || '')}</textarea></div>`;
-    html += `<div class="sheet-acts"><button class="primary-btn" id="saveV">保存</button></div>`;
+
+    const phs0 = (v.phases && v.phases.length) ? v.phases : LEngine.autoPhases(v);
+    html += `<div class="field"><label>本卷三阶段（生成格子时按此分段推进）</label>`;
+    html += `<div class="hint">格号必须首尾相接、覆盖本卷 ${v.fromStep}-${v.toStep}，保存时会自动规整。</div>`;
+    phs0.forEach((ph, i) => {
+      html += `<div class="ph-edit">
+        <div class="ph-row">
+          <span class="ph-no">阶段${i + 1}</span>
+          <input type="number" class="ph-from" min="1" value="${ph.fromStep}" style="width:64px">
+          <span>─</span>
+          <input type="number" class="ph-to" min="1" value="${ph.toStep}" style="width:64px">
+          <input class="ph-name" value="${esc(ph.name || '')}" placeholder="阶段名" style="flex:1">
+        </div>
+        <input class="ph-note" value="${esc(ph.note || '')}" placeholder="这一阶段主角在做什么、卡在哪（可留空）">
+      </div>`;
+    });
+    html += `</div>`;
+    html += `<div class="sheet-acts"><button class="ghost-btn" id="phAuto">按本卷格数重分</button><button class="primary-btn" id="saveV">保存</button></div>`;
 
     A.sheet(html, (root) => {
+      root.querySelector('#phAuto').onclick = () => {
+        const nf = parseInt(root.querySelector('#vFrom').value, 10) || v.fromStep;
+        const nt = parseInt(root.querySelector('#vTo').value, 10) || v.toStep;
+        const tmp = LEngine.autoPhases({ fromStep: Math.min(nf, nt), toStep: Math.max(nf, nt) });
+        const els = root.querySelectorAll('.ph-edit');
+        els.forEach((pe, i) => {
+          const a = tmp[i];
+          pe.querySelector('.ph-from').value = a ? a.fromStep : '';
+          pe.querySelector('.ph-to').value = a ? a.toStep : '';
+          pe.querySelector('.ph-name').value = a ? a.name : '';
+        });
+      };
       root.querySelector('#saveV').onclick = () => {
         const nf = parseInt(root.querySelector('#vFrom').value, 10) || v.fromStep;
         const nt = parseInt(root.querySelector('#vTo').value, 10) || v.toStep;
@@ -366,6 +408,25 @@
         v.conflict = root.querySelector('#vConflict').value.trim();
         v.fromStep = Math.min(nf, nt);
         v.toStep = Math.max(nf, nt);
+
+        /* 收集阶段 */
+        const phEls = root.querySelectorAll('.ph-edit');
+        const newPhs = [];
+        phEls.forEach((pe, i) => {
+          newPhs.push({
+            no: i + 1,
+            fromStep: parseInt(pe.querySelector('.ph-from').value, 10) || 0,
+            toStep: parseInt(pe.querySelector('.ph-to').value, 10) || 0,
+            name: pe.querySelector('.ph-name').value.trim() || ('阶段' + (i + 1)),
+            note: pe.querySelector('.ph-note').value.trim()
+          });
+        });
+        const rangeChanged = (nf !== v.fromStep || nt !== v.toStep);
+        if (rangeChanged && (!newPhs.length || newPhs.every(x => x.fromStep < Math.min(nf, nt) || x.toStep > Math.max(nf, nt)))) {
+          v.phases = LEngine.autoPhases(v);
+        } else {
+          v.phases = newPhs.length ? LEngine.normalizePhases(v) : LEngine.autoPhases(v);
+        }
 
         /* 后续卷自动顺延 */
         if (diff !== 0) {
