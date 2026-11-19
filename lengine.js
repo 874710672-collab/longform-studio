@@ -391,14 +391,26 @@
         + (stage ? `所属级：第${stage.num}级「${stage.name}」　级目标：${stage.goal}　级矛盾：${stage.conflict}\n` : '')
         + (vol.vol > 1 ? `这是全书的一部分，不要在第 1 格起重新编号，也不要提前解决后面几卷的问题。\n` : '');
     }
-    /* 带上一卷的尾格，保证衔接 */
+    /* —— 关键：明确「这是全书的第几格」，防止 AI 当成新开头重写 —— */
     if (fromStep > 1) {
-      const prevCells = (book.spine || []).filter(c => c.step < fromStep);
-      const tail = prevCells.slice(-3);
-      if (tail.length) {
-        rangeBlock += '\n【前面已经写好的格子（必须接住最后一格的结局）】\n'
-          + tail.map(c => `第${c.step}格｜${c.title}\n  推进：${c.promote || ''}\n  不许碰：${c.mustNot || '无'}`).join('\n')
-          + '\n';
+      const prevCells = (book.spine || []).filter(c => c.step < fromStep).sort((a, b) => a.step - b.step);
+      const doneCount = prevCells.length;
+      const lastStep = prevCells.length ? prevCells[prevCells.length - 1].step : (fromStep - 1);
+
+      rangeBlock = `【❗重要：这不是故事的开始❗】\n`
+        + `全书主线共约 ${mainUnits} 格。目前第 1 格到第 ${lastStep} 格**已经写完**（共 ${doneCount} 格，属于前 ${Math.max(1, vol ? vol.vol - 1 : 1)} 卷）。\n`
+        + `你现在要写的是全书的第 ${fromStep} 格到第 ${toStep} 格，也就是**故事进行到中后段**的部分。\n`
+        + `绝对不要写主角的穿越/重生/醒来/初次登场——这些早已在第 1-17 格发生过了。\n`
+        + `绝对不能从"故事开头"重新起笔，也不能让时间倒流回故事起点。\n\n`
+        + rangeBlock;
+
+      if (prevCells.length) {
+        const tail = prevCells.slice(-4);
+        rangeBlock += '\n【上一卷收束在哪里（必须从这里往下接）】\n'
+          + tail.map(c => `第${c.step}格｜${c.title}\n  推进：${c.promote || ''}\n  谁改变：${c.change || ''}\n  不许碰：${c.mustNot || '无'}`).join('\n')
+          + '\n'
+          + `\n▶ 你写的第一格（第 ${fromStep} 格）必须紧接第 ${lastStep} 格结尾的局面：人物在哪、手里有什么、遇到什么新麻烦。\n`
+          + `▶ 开篇不要交代身世背景，直接推进新的事件。\n`;
       }
     }
     /* 剩余格子的路标，避免打光后面的牌 */
@@ -443,6 +455,53 @@
     });
     book.spine = GRID.reindex([...map.values()]);
     return { added, updated };
+  }
+
+  /* 检测：新生成的格子是否像是「把故事开头又写了一遍」 */
+  function detectRestart(book, newCells, fromStep) {
+    if (fromStep <= 1) return null;
+    const old = (book.spine || []).filter(c => c.step < fromStep);
+    if (!old.length) return null;
+
+    const norm = t => String(t || '').replace(/[\s\u3000，。、；：！？""''（）《》【】…—]/g, '');
+    const bigrams = t => {
+      const s0 = norm(t), set = new Set();
+      for (let i = 0; i < s0.length - 1; i++) set.add(s0.slice(i, i + 2));
+      return set;
+    };
+    const sim = (a, b) => {
+      if (!a.size || !b.size) return 0;
+      let n = 0;
+      a.forEach(g => { if (b.has(g)) n++; });
+      return n / Math.min(a.size, b.size);
+    };
+
+    const openers = [
+      /醒来|睁开眼|醒来时|宿醉醒|穿越|重生|魂穿|回到|刚醒/,
+      /第[一二三]次见|初见|头一回见/,
+      /(第一次|头一次)(进|入|来|见)/
+    ];
+
+    const hits = [];
+    newCells.forEach(nc => {
+      const text = (nc.title || '') + ' ' + (nc.promote || '') + ' ' + (nc.beats ? JSON.stringify(nc.beats) : '');
+      /* 规则 A：开篇关键词命中 */
+      if (openers.some(re => re.test(text))) {
+        hits.push({ step: nc.step, title: nc.title, why: '内容像"故事开头"（醒来/穿越/重生/初见）' });
+        return;
+      }
+      /* 规则 B：与前面已有格子高度重复 */
+      const g1 = bigrams(text);
+      let best = 0, bestStep = 0;
+      old.forEach(oc => {
+        const v = sim(g1, bigrams((oc.title || '') + ' ' + (oc.promote || '')));
+        if (v > best) { best = v; bestStep = oc.step; }
+      });
+      if (best >= 0.62) {
+        hits.push({ step: nc.step, title: nc.title, why: `与第${bestStep}格重复度 ${Math.round(best * 100)}%` });
+      }
+    });
+    return hits.length ? hits : null;
   }
 
   async function genBookStep(book, key, onDelta, signal) {
@@ -1350,7 +1409,7 @@
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
-    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, mergeCells,
+    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, mergeCells, detectRestart,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
     genCellFill, parseCellText, cellText,
