@@ -376,6 +376,97 @@
     return API.chat({ messages: API.buildMessages(P.system, user.join('\n')), onDelta, signal });
   }
 
+  /* 只重新生成某一卷的结构（卷名/格范围/目标/矛盾/三阶段） */
+  async function genOneVolume(book, vol, onDelta, signal) {
+    const P = LP.get();
+    const { mainUnits, perPhase } = sizePlan(book);
+    const stages = (book.stages && book.stages.length) ? book.stages : parseStages(bookDoc(book, 'book'));
+    if (!stages.length) throw new Error('总纲里没有解析出【三级推进】，先生成总纲');
+
+    const stagesOfVol = stages.filter(st =>
+      (!st.fromVol || !st.toVol) ? true : (vol.vol >= st.fromVol && vol.vol <= st.toVol));
+    const stageText = (stagesOfVol.length ? stagesOfVol : stages).map(st =>
+      `第${st.num}级｜${st.name}\n  目标：${st.goal}\n  矛盾：${st.conflict}`
+    ).join('\n');
+
+    /* 前后邻卷：给模型看边界，避免它把范围吃掉或超出 */
+    const sorted = (book.volumes || []).slice().sort((a, b) => a.vol - b.vol);
+    const i = sorted.findIndex(v => v.vol === vol.vol);
+    const prevV = i > 0 ? sorted[i - 1] : null;
+    const nextV = i >= 0 && i < sorted.length - 1 ? sorted[i + 1] : null;
+
+    const neighbour = [];
+    if (prevV) neighbour.push(`上一卷：卷${prevV.vol}「${prevV.name}」覆盖第 ${prevV.fromStep}-${prevV.toStep} 格`);
+    if (nextV) neighbour.push(`下一卷：卷${nextV.vol}「${nextV.name}」覆盖第 ${nextV.fromStep}-${nextV.toStep} 格`);
+    const lo = prevV ? prevV.toStep + 1 : 1;
+    const hi = Math.max(nextV ? nextV.toStep : mainUnits, vol.toStep);
+    const curLen = vol.toStep - vol.fromStep + 1;
+
+    const user = [
+      `请重新生成「卷${vol.vol}」这一卷的卷结构。本次只输出这一卷，不要输出其他任何卷。`,
+      '',
+      '全书总纲：',
+      bookDoc(book, 'book'),
+      '',
+      '所属级（不许改）：',
+      stageText,
+      '',
+      `规模：全书主线共 ${mainUnits} 格，每卷约 ${perPhase} 格。`,
+      neighbour.length ? '相邻卷（用于确定边界，不许改动它们）：\n' + neighbour.join('\n') : '',
+      '',
+      `【这一卷的格范围规则】：`,
+      `  起点不能早于第 ${lo} 格${prevV ? '（上一卷「' + prevV.name + '」占用到第' + prevV.toStep + '格）' : ''}；`,
+      `  格数建议保持在 ${curLen} 格左右（当前 ${curLen} 格），可按剧情需要浮动，但不要大幅改动；`,
+      `  如果你觉得这一卷确实需要更多格子，可以放宽，后面的卷会自动顺延；`,
+      `  但不要超过 ${mainUnits} 格（全书总格数）。`,
+      '',
+      `当前版本（仅作参考，可以大改）：`,
+      `卷${vol.vol}｜${vol.name}｜第${vol.stageNum}级｜第${vol.fromStep}-${vol.toStep}格｜${vol.goal}｜${vol.conflict}`,
+      '',
+      '要求：严格按下面格式输出，只输出 1 行卷头 + 3 行阶段，不要解释、不要输出其他卷：',
+      '',
+      '卷N｜卷名｜所属级｜起止格｜本卷目标｜本卷矛盾',
+      '  阶段1｜起止格｜阶段名｜阶段目标｜阶段阻力｜阶段说明',
+      '  阶段2｜起止格｜阶段名｜阶段目标｜阶段阻力｜阶段说明',
+      '  阶段3｜起止格｜阶段名｜阶段目标｜阶段阻力｜阶段说明',
+      '',
+      '格式说明：',
+      `- 卷N 必须是 ${vol.vol}`,
+      '- 卷名：4-8 字，要有辨识度',
+      `- 所属级：第${vol.stageNum}级（本卷已确定，不许改）`,
+      `- 起止格：起点不早于第 ${lo} 格，格数约 ${curLen} 格（可小幅浮动）`,
+      '- 本卷目标：这一卷主角要达成什么（一句话，具体动作结果）',
+      '- 本卷矛盾：这一卷的核心阻力（一句话）',
+      '- 阶段N｜起止格｜阶段名：把本卷的格分成 3 段，首尾相接、覆盖本卷全部格子',
+      '- 阶段目标：这一阶段结束时主角达成什么，或者跌到了哪里',
+      '- 阶段阻力：这几格具体卡住主角的那个人或那件事（具体障碍，不是"主角 vs 某某"）',
+      '- 阶段说明：这一段格子里人物在做什么、场面在哪',
+      '',
+      '卷内三阶段必须体现「起 → 承/转 → 合」的节奏：',
+      '  阶段1：主角被卷进局面，处境变坏，还不能反击——阻力让他无法反抗；',
+      '  阶段2：主角暗中准备、试探、付代价，蓄而不发——阻力让他付出代价；',
+      '  阶段3：矛盾摊到明面上，本卷目标达成或失败收尾——阻力被正面撞破。',
+      '',
+      '硬性要求：',
+      `1. 起点不早于第 ${lo} 格，格数约 ${curLen} 格`,
+      `2. 所属级必须是第${vol.stageNum}级`,
+      '3. 每卷目标必须是具体的动作结果，不许写"继续发展"这类空话',
+      '4. 必须有 3 行阶段，阶段格号必须刚好覆盖本卷',
+      '5. 三个阶段不许写成同一件事的三种说法，必须是三种不同的处境',
+      '6. 只输出这一卷，不许输出其他卷'
+    ].filter(x => x !== '').join('\n');
+
+    /* 审核意见：只作用于这一卷 */
+    let text = user;
+    const fb = feedbackOf(book.steps.spine);
+    if (fb) {
+      text += '\n\n【作者的要求，只针对本次重做的「卷' + vol.vol + '」，必须照改】\n' + fb;
+      text += '\n（如果上面这段意见提到的是别的卷，忽略它，按正常标准重做本卷即可）';
+    }
+
+    return API.chat({ messages: API.buildMessages(P.system, text), onDelta, signal });
+  }
+
   /* 解析生成的卷结构（含卷内三阶段） */
   function parseVolumes(text, stages) {
     const t = String(text || '');
@@ -1571,7 +1662,7 @@
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
-    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, autoPhases, normalizePhases, mergeCells, detectRestart,
+    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genOneVolume, genSpineRange, autoPhases, normalizePhases, mergeCells, detectRestart,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
     genCellFill, parseCellText, cellText,
