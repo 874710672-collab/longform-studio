@@ -329,7 +329,18 @@
   /* 生成全部卷 */
   async function doGenVolumes(b, isRedo) {
     if (A.busy) return;
-    if (isRedo && !confirm('重新生成全部卷？\n\n会覆盖现有的卷结构（格子本身不受影响，但卷和格的对应会重排）。')) return;
+    if (isRedo) {
+      const edited = (b.volumes || []).filter(v => v.phasesEdited).map(v => '卷' + v.vol).join('、');
+      const fb = (b.steps.spine.feedback || '').trim();
+      let msg = '重新生成全部卷？\n\n'
+        + '· 卷名、任务目标、本卷矛盾会被覆盖\n'
+        + '· 格子本身不受影响（但卷和格的对应会重排）\n';
+      if (edited) msg += '· 你手动改过的三阶段会保留：' + edited + '\n';
+      else msg += '· 三阶段会按新生成的内容替换\n';
+      msg += fb ? '\n✅ 本次会带上审核意见：\n' + fb.slice(0, 120) : '\n（当前没有审核意见）';
+      msg += '\n\n继续？';
+      if (!confirm(msg)) return;
+    }
     const ctrl = new AbortController();
     A.setBusy({ ctrl, label: '正在生成卷结构', text: '' });
     A.render();
@@ -343,6 +354,17 @@
       const stages = (b.stages && b.stages.length) ? b.stages : LEngine.parseStages(LEngine.docOf(b.steps.book));
       const vols = LEngine.parseVolumes(out, stages);
       if (!vols.length) throw new Error('没有解析出卷，检查返回格式');
+
+      /* 保留用户手改过的阶段：旧卷的阶段若被手动改过，优先沿用 */
+      const oldVols = b.volumes || [];
+      vols.forEach(nv => {
+        const ov = oldVols.find(x => x.vol === nv.vol);
+        if (ov && ov.phases && ov.phases.length && ov.phasesEdited) {
+          nv.phases = LEngine.normalizePhases(nv.fromStep, nv.toStep,
+            ov.phases.map(p => Object.assign({}, p)));
+          nv.phasesEdited = true;
+        }
+      });
 
       b.volumes = vols;
       Books.pushHistory(b, '生成卷结构', vols.length + ' 卷');
@@ -435,6 +457,7 @@
         v.phases = newPhs.length
           ? LEngine.normalizePhases(newFrom, newTo, newPhs)
           : LEngine.autoPhases(v);
+        v.phasesEdited = true;   /* 标记：手改过，重新生成卷结构时保留 */
 
         /* 后续卷自动顺延 */
         if (diff !== 0) {
