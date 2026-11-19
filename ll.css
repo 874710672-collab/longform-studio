@@ -900,3 +900,32 @@ body.dock-hidden #stage,
   overflow:hidden;text-overflow:ellipsis;display:-webkit-box;
   -webkit-line-clamp:2;-webkit-box-orient:vertical}
 .vol-row .mini{flex:0 0 auto}
+
+/* ---------- 三级推进卡片 ---------- */
+.stage-list{display:flex;flex-direction:column;gap:9px}
+.stage-row{
+  padding:11px 12px;border-radius:11px;
+  background:var(--panel2);border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+}
+.st-head{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap}
+.st-n{
+  font-size:10px;padding:2px 7px;border-radius:5px;
+  background:rgba(185,166,255,.18);color:var(--accent2);
+}
+.st-name{font-size:14px}
+.st-range{font-size:10px;color:var(--sub);margin-left:auto}
+.st-line{display:flex;gap:8px;margin-top:5px;font-size:12px;line-height:1.7}
+.st-k{flex:0 0 2.5em;color:var(--sub)}
+.st-v{flex:1;min-width:0;color:var(--txt);word-break:break-word}
+
+/* 卷分组 */
+.vol-group{margin-top:12px}
+.vg-head{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.vg-n{
+  font-size:10px;padding:2px 7px;border-radius:5px;
+  background:rgba(185,166,255,.18);color:var(--accent2);
+}
+.vg-head b{font-size:13px}
+.vg-sub{font-size:10px;color:var(--sub);margin-left:auto}
+.vol-ops{display:flex;gap:5px;flex:0 0 auto}
