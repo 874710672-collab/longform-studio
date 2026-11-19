@@ -19,6 +19,9 @@
     /* 简报 */
     stage.appendChild(briefCard(b));
 
+    /* 总纲环节：显示三级推进卡片（可编辑） */
+    if (k === 'book') stage.appendChild(stagesCard(b));
+
     /* 文档区 */
     const wrap = el('div', 'split');
     const left = el('div');
@@ -65,7 +68,99 @@
     A.app.streamEl = pre;
   }
 
-  /* 主线推进表那一环：卡片视图 + AI 原文折叠区 */
+  /* ---------- 三级推进卡片（总纲环节） ---------- */
+  function stagesCard(b) {
+    const c = el('div', 'card');
+    const h = el('h3', '', '三级推进');
+    const text = LEngine.docOf(b.steps.book);
+    /* 首次进入自动解析并存档 */
+    if ((!b.stages || !b.stages.length) && text) {
+      const parsed = LEngine.parseStages(text);
+      if (parsed.length) { b.stages = parsed; A.persist(); }
+    }
+    const stages = (b.stages && b.stages.length) ? b.stages : [];
+    h.appendChild(el('span', 'tag', stages.length ? stages.length + ' 级' : '未解析'));
+    c.appendChild(h);
+
+    if (!stages.length) {
+      c.appendChild(el('div', 'hint', text
+        ? '总纲里没有解析出【三级推进】。检查格式，或点下面的「重新解析」。'
+        : '先生成全书总纲，这里会出现三级推进。'));
+      if (text) {
+        const btn = el('button', 'ghost-btn wide', '重新解析三级推进');
+        btn.onclick = () => {
+          b.stages = LEngine.parseStages(LEngine.docOf(b.steps.book));
+          A.persist(); A.render();
+          A.toast(b.stages.length ? '解析出 ' + b.stages.length + ' 级' : '还是没解析出来，检查【三级推进】格式');
+        };
+        c.appendChild(btn);
+      }
+      return c;
+    }
+
+    const list = el('div', 'stage-list');
+    stages.forEach(st => {
+      const row = el('div', 'stage-row');
+      const head = el('div', 'st-head');
+      head.appendChild(el('span', 'st-n', '第' + st.num + '级'));
+      head.appendChild(el('b', 'st-name', st.name));
+      if (st.fromVol && st.toVol) head.appendChild(el('span', 'st-range', '第' + st.fromVol + '-' + st.toVol + '卷'));
+      row.appendChild(head);
+      if (st.goal) {
+        const g = el('div', 'st-line');
+        g.appendChild(el('span', 'st-k', '目标'));
+        g.appendChild(el('span', 'st-v', st.goal));
+        row.appendChild(g);
+      }
+      if (st.conflict) {
+        const g = el('div', 'st-line');
+        g.appendChild(el('span', 'st-k', '矛盾'));
+        g.appendChild(el('span', 'st-v', st.conflict));
+        row.appendChild(g);
+      }
+      const ops = el('div', 'fi-ops');
+      const ed = el('button', 'mini', '编辑');
+      ed.onclick = () => editStage(b, st);
+      ops.appendChild(ed);
+      row.appendChild(ops);
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+    return c;
+  }
+
+  /* 编辑一个级 */
+  function editStage(b, st) {
+    const plan = LEngine.sizePlan(b);
+    let html = `<h2>编辑第 ${st.num} 级<button class="close">×</button></h2>`;
+    html += `<div class="hint">三级固定不变，这里只能改内容。卷号范围要和总卷数（${plan.phases} 卷）对得上。</div>`;
+    html += `<div class="field"><label>级名</label><input id="stName" value="${esc(st.name || '')}"></div>`;
+    html += `<div class="field"><label>本级目标</label><textarea id="stGoal" rows="2">${esc(st.goal || '')}</textarea></div>`;
+    html += `<div class="field"><label>本级主要矛盾</label><textarea id="stConflict" rows="2">${esc(st.conflict || '')}</textarea></div>`;
+    html += `<div class="grid2">
+      <div class="field"><label>起始卷</label><input type="number" id="stFrom" min="1" max="${plan.phases}" value="${st.fromVol || 1}"></div>
+      <div class="field"><label>结束卷</label><input type="number" id="stTo" min="1" max="${plan.phases}" value="${st.toVol || plan.phases}"></div>
+    </div>`;
+    html += `<div class="sheet-acts"><button class="primary-btn" id="saveSt">保存</button></div>`;
+
+    A.sheet(html, (root) => {
+      root.querySelector('#saveSt').onclick = () => {
+        st.name = root.querySelector('#stName').value.trim() || st.name;
+        st.goal = root.querySelector('#stGoal').value.trim();
+        st.conflict = root.querySelector('#stConflict').value.trim();
+        st.fromVol = parseInt(root.querySelector('#stFrom').value, 10) || 1;
+        st.toVol = parseInt(root.querySelector('#stTo').value, 10) || plan.phases;
+        b.stages = LEngine.parseStages(LEngine.docOf(b.steps.book));
+        /* 用编辑后的覆盖回到 b.stages */
+        const i = b.stages.findIndex(x => x.num === st.num);
+        if (i >= 0) b.stages[i] = st; else b.stages.push(st);
+        Books.pushHistory(b, '编辑三级推进', '第' + st.num + '级 ' + st.name);
+        A.persist(); A.closeSheet(); A.render();
+        A.toast('已保存');
+      };
+    });
+  }
+
   function renderSpineStep(b, s) {
     /* 简报 */
     stage.appendChild(briefCard(b));
@@ -131,66 +226,151 @@
     stage.appendChild(BOOKUI.feedbackCard(s, 'spine'));
   }
 
-  /* 分卷生成面板 */
+  /* 卷结构面板（推进表上方） */
   function volumePanel(b) {
     const c = el('div', 'card');
     const plan = LEngine.volumePlan(b);
-    const h = el('h3', '', '分卷生成');
-    h.appendChild(el('span', 'tag', plan.parsed ? plan.volumes.length + ' 卷' : '未分卷'));
+    const h = el('h3', '', '卷结构');
+    h.appendChild(el('span', 'tag', plan.volumes.length ? plan.volumes.length + ' 卷' : '未生成'));
     c.appendChild(h);
 
-    /* 未解析出分卷 */
+    /* 没解析出级 */
     if (!plan.parsed) {
       c.appendChild(el('div', 'hint',
-        '总纲里没有解析出「【全书分卷】」。可以：\n'
-        + '· 回「全书总纲」重新生成（会自动带分卷）\n'
-        + '· 或者直接用下面的「全文一次生成」'));
-      const btn = el('button', 'primary-btn wide', '全文一次生成推进表');
-      btn.onclick = () => genWhole(b);
+        '总纲里没有【三级推进】，先回「全书总纲」生成（或在此页点重新解析）。'));
+      return c;
+    }
+
+    /* 有级但没卷 */
+    if (!plan.hasVolumes) {
+      const st = plan.stages.map(x => `第${x.num}级「${x.name}」：第${x.fromVol}-${x.toVol}卷`).join('\n');
+      c.appendChild(el('div', 'hint', '三级推进已就绪：\n' + st + '\n\n下一步：生成全部卷。'));
+      const btn = el('button', 'primary-btn wide', '生成全部卷（' + plan.phases + ' 卷）');
+      btn.onclick = () => doGenVolumes(b);
       c.appendChild(btn);
       return c;
     }
 
-    /* 规模提示 */
-    if (plan.suggestSplit) {
-      c.appendChild(el('div', 'cap-tip thin',
-        '本书约 ' + plan.mainUnits + ' 个主线单元，建议分卷生成——一次生成这么多格容易被截断、后段质量下滑。'));
-    }
+    /* 有卷：按级分组显示 */
+    plan.stages.forEach(st => {
+      const vols = plan.volumes.filter(v => v.stageNum === st.num);
+      if (!vols.length) return;
 
-    /* 卷列表 */
-    const list = el('div', 'vol-list');
-    const existing = new Set((b.spine || []).map(x => x.step));
-    plan.volumes.forEach(v => {
-      let have = 0;
-      for (let i = v.from; i <= v.to; i++) if (existing.has(i)) have++;
-      const total = v.to - v.from + 1;
-      const full = have >= total;
+      const grp = el('div', 'vol-group');
+      const gh = el('div', 'vg-head');
+      gh.appendChild(el('span', 'vg-n', '第' + st.num + '级'));
+      gh.appendChild(el('b', '', st.name));
+      gh.appendChild(el('span', 'vg-sub', vols.length + ' 卷'));
+      grp.appendChild(gh);
 
-      const row = el('div', 'vol-row' + (full ? ' done' : ''));
-      const info = el('div', 'vol-info');
-      const t = el('div', 'vol-title');
-      t.appendChild(el('b', '', '卷' + v.vol + '　' + v.name));
-      if (full) t.appendChild(el('span', 'vol-badge ok', '已完成'));
-      else if (have > 0) t.appendChild(el('span', 'vol-badge part', have + '/' + total));
-      info.appendChild(t);
-      info.appendChild(el('div', 'vol-sub', '第' + v.from + '-' + v.to + '格 · ' + (v.conflict || '')));
-      row.appendChild(info);
+      vols.forEach(v => {
+        let have = 0;
+        for (let i = v.fromStep; i <= v.toStep; i++) {
+          if ((b.spine || []).some(x => x.step === i)) have++;
+        }
+        const total = v.toStep - v.fromStep + 1;
+        const full = have >= total;
 
-      const btn = el('button', 'mini' + (full ? '' : ' on'), full ? '重新生成' : '生成这一卷');
-      btn.onclick = () => genVolume(b, v, full);
-      row.appendChild(btn);
-      list.appendChild(row);
+        const row = el('div', 'vol-row' + (full ? ' done' : ''));
+        const info = el('div', 'vol-info');
+        const t = el('div', 'vol-title');
+        t.appendChild(el('b', '', '卷' + v.vol + '　' + v.name));
+        if (full) t.appendChild(el('span', 'vol-badge ok', '已完成'));
+        else if (have > 0) t.appendChild(el('span', 'vol-badge part', have + '/' + total));
+        info.appendChild(t);
+        const sub = el('div', 'vol-sub');
+        sub.textContent = '第' + v.fromStep + '-' + v.toStep + '格 · ' + (v.goal || '（无目标）');
+        info.appendChild(sub);
+        row.appendChild(info);
+
+        const ops = el('div', 'vol-ops');
+        const ed = el('button', 'mini', '编辑');
+        ed.onclick = () => editVolume(b, v);
+        const gen = el('button', 'mini' + (full ? '' : ' on'), full ? '重新生成' : '生成这一卷');
+        gen.onclick = () => genVolume(b, v, full);
+        ops.appendChild(ed); ops.appendChild(gen);
+        row.appendChild(ops);
+        grp.appendChild(row);
+      });
+      c.appendChild(grp);
     });
-    c.appendChild(list);
 
-    /* 全文一次 */
+    /* 底部操作 */
     const acts = el('div', 'list-acts');
-    const whole = el('button', 'mini', '全文一次生成');
+    const regen = el('button', 'mini', '重新生成全部卷');
+    regen.onclick = () => doGenVolumes(b, true);
+    const whole = el('button', 'mini', '全文一次生成格子');
     whole.onclick = () => genWhole(b);
-    acts.appendChild(whole);
+    acts.appendChild(regen); acts.appendChild(whole);
     c.appendChild(acts);
 
     return c;
+  }
+
+  /* 生成全部卷 */
+  async function doGenVolumes(b, isRedo) {
+    if (A.busy) return;
+    if (isRedo && !confirm('重新生成全部卷？\n\n会覆盖现有的卷结构（格子本身不受影响，但卷和格的对应会重排）。')) return;
+    const ctrl = new AbortController();
+    A.setBusy({ ctrl, label: '正在生成卷结构', text: '' });
+    A.render();
+    A.setStream('');
+    try {
+      const out = await LEngine.genVolumes(b, (d, full) => {
+        A.setBusy(Object.assign({}, A.busy, { text: full }));
+        A.setStream(full); A.updateDock();
+      }, ctrl.signal);
+      if (!out || !String(out).trim()) throw new Error('返回为空');
+      const stages = (b.stages && b.stages.length) ? b.stages : LEngine.parseStages(LEngine.docOf(b.steps.book));
+      const vols = LEngine.parseVolumes(out, stages);
+      if (!vols.length) throw new Error('没有解析出卷，检查返回格式');
+
+      b.volumes = vols;
+      Books.pushHistory(b, '生成卷结构', vols.length + ' 卷');
+      A.persist();
+      A.setBusy(null); A.render();
+      A.toast('已生成 ' + vols.length + ' 卷');
+    } catch (e) {
+      A.setBusy(null); A.endStream(); A.render();
+      if (e.name !== 'AbortError') alert('生成失败：' + e.message);
+    }
+  }
+
+  /* 编辑一卷 */
+  function editVolume(b, v) {
+    let html = `<h2>编辑卷${v.vol}<button class="close">×</button></h2>`;
+    html += `<div class="hint">改格范围后，后面各卷会自动顺延。</div>`;
+    html += `<div class="field"><label>卷名</label><input id="vName" value="${esc(v.name || '')}"></div>`;
+    html += `<div class="grid2">
+      <div class="field"><label>起始格</label><input type="number" id="vFrom" min="1" value="${v.fromStep}"></div>
+      <div class="field"><label>结束格</label><input type="number" id="vTo" min="1" value="${v.toStep}"></div>
+    </div>`;
+    html += `<div class="field"><label>本卷目标</label><textarea id="vGoal" rows="2">${esc(v.goal || '')}</textarea></div>`;
+    html += `<div class="field"><label>本卷矛盾</label><textarea id="vConflict" rows="2">${esc(v.conflict || '')}</textarea></div>`;
+    html += `<div class="sheet-acts"><button class="primary-btn" id="saveV">保存</button></div>`;
+
+    A.sheet(html, (root) => {
+      root.querySelector('#saveV').onclick = () => {
+        const nf = parseInt(root.querySelector('#vFrom').value, 10) || v.fromStep;
+        const nt = parseInt(root.querySelector('#vTo').value, 10) || v.toStep;
+        const diff = (nt - nf) - (v.toStep - v.fromStep);
+
+        v.name = root.querySelector('#vName').value.trim() || v.name;
+        v.goal = root.querySelector('#vGoal').value.trim();
+        v.conflict = root.querySelector('#vConflict').value.trim();
+        v.fromStep = Math.min(nf, nt);
+        v.toStep = Math.max(nf, nt);
+
+        /* 后续卷自动顺延 */
+        if (diff !== 0) {
+          const after = b.volumes.filter(x => x.vol > v.vol).sort((a, c) => a.vol - c.vol);
+          after.forEach(x => { x.fromStep += diff; x.toStep += diff; });
+        }
+        Books.pushHistory(b, '编辑卷', '卷' + v.vol + ' 第' + v.fromStep + '-' + v.toStep + '格');
+        A.persist(); A.closeSheet(); A.render();
+        A.toast(diff !== 0 ? '已保存，后续卷已顺延 ' + diff + ' 格' : '已保存');
+      };
+    });
   }
 
   /* 生成一卷 */
@@ -199,11 +379,11 @@
     if (isRedo && !confirm('「卷' + v.vol + '　' + v.name + '」已经生成过。\n\n重新生成会覆盖这一卷的格子内容（已有的单元保留，只更新格子文本）。\n\n继续？')) return;
 
     const ctrl = new AbortController();
-    A.setBusy({ ctrl, label: '正在生成卷' + v.vol + '（' + (v.to - v.from + 1) + '格）', text: '' });
+    A.setBusy({ ctrl, label: '正在生成卷' + v.vol + '（' + (v.toStep - v.fromStep + 1) + '格）', text: '' });
     A.render();
     A.setStream('');
     try {
-      const out = await LEngine.genSpineRange(b, v.from, v.to, (d, full) => {
+      const out = await LEngine.genSpineRange(b, v.fromStep, v.toStep, (d, full) => {
         A.setBusy(Object.assign({}, A.busy, { text: full }));
         A.setStream(full); A.updateDock();
       }, ctrl.signal);
@@ -211,8 +391,8 @@
 
       const cells = LEngine.parseSpine(out);
       if (!cells.length) throw new Error('没有解析出格子，检查返回格式');
-      const inRange = cells.filter(c => c.step >= v.from && c.step <= v.to);
-      if (!inRange.length) throw new Error('生成的格号不在 ' + v.from + '-' + v.to + ' 范围内');
+      const inRange = cells.filter(c => c.step >= v.fromStep && c.step <= v.toStep);
+      if (!inRange.length) throw new Error('生成的格号不在 ' + v.fromStep + '-' + v.toStep + ' 范围内');
 
       const rep = LEngine.mergeCells(b, inRange);
       const sync = LEngine.syncUnitsWithSpine(b);
