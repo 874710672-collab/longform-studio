@@ -242,6 +242,117 @@
 
   /* ================= 全书层生成 ================= */
 
+  /* ================= 分卷 ================= */
+
+  /* 从总纲里解析【全书分卷】 */
+  function parseVolumes(bookText) {
+    const t = String(bookText || '');
+    const m = t.match(/【全书分卷】([\s\S]*?)(?=【|$)/);
+    if (!m) return [];
+    const vols = [];
+    m[1].split('\n').forEach(line => {
+      const s = line.trim().replace(/^[-·*]\s*/, '');
+      if (!s || s.indexOf('｜') < 0) return;
+      const f = s.split(/[｜|]/).map(x => x.trim());
+      /* 卷号｜卷名｜起止单元｜矛盾 */
+      const numM = String(f[0]).match(/\d+/);
+      const rangeM = String(f[2] || '').match(/(\d+)\s*[-—~到至]\s*(\d+)/);
+      if (!numM || !rangeM) return;
+      vols.push({
+        vol: parseInt(numM[0], 10),
+        name: f[1] || ('卷' + numM[0]),
+        from: parseInt(rangeM[1], 10),
+        to: parseInt(rangeM[2], 10),
+        conflict: f[3] || ''
+      });
+    });
+    vols.sort((a, b) => a.vol - b.vol);
+    return vols;
+  }
+
+  /* 把总纲的形态判断出来（供 UI 用） */
+  function volumePlan(book) {
+    const bookText = bookDoc(book, 'book');
+    const vols = parseVolumes(bookText);
+    const mainUnits = Math.max(8, Math.round((book.target || 380000) / 11000));
+    return {
+      volumes: vols,
+      mainUnits,
+      suggestSplit: mainUnits > 40,   /* 超过 40 格建议分卷 */
+      parsed: vols.length > 0
+    };
+  }
+
+  /* 生成某一卷的推进表格子（fromStep~toStep） */
+  async function genSpineRange(book, fromStep, toStep, onDelta, signal) {
+    const P = LP.get();
+    const target = book.target;
+    const mainUnits = Math.max(8, Math.round(target / 11000));
+    const sideUnits = Math.max(4, Math.round(mainUnits * 0.25));
+
+    /* 范围说明 */
+    let rangeBlock = '';
+    const vols = parseVolumes(bookDoc(book, 'book'));
+    const vol = vols.find(v => fromStep >= v.from && fromStep <= v.to);
+    if (vol) {
+      rangeBlock = `【本次生成的是「卷${vol.vol}　${vol.name}」】\n`
+        + `本卷覆盖第 ${vol.from}-${vol.to} 格，核心矛盾：${vol.conflict}\n`
+        + (vol.vol > 1 ? `这是全书的一部分，不要在第 1 格起重新编号，也不要提前解决后面几卷的问题。\n` : '');
+    }
+    /* 带上一卷的尾格，保证衔接 */
+    if (fromStep > 1) {
+      const prevCells = (book.spine || []).filter(c => c.step < fromStep);
+      const tail = prevCells.slice(-3);
+      if (tail.length) {
+        rangeBlock += '\n【前面已经写好的格子（必须接住最后一格的结局）】\n'
+          + tail.map(c => `第${c.step}格｜${c.title}\n  推进：${c.promote || ''}\n  不许碰：${c.mustNot || '无'}`).join('\n')
+          + '\n';
+      }
+    }
+    /* 剩余格子的路标，避免打光后面的牌 */
+    if (toStep < mainUnits) {
+      const remainV = vols.filter(v => v.from > toStep);
+      if (remainV.length) {
+        rangeBlock += '\n【后面还没到的卷（不许提前解决）】\n'
+          + remainV.map(v => `卷${v.vol}　${v.name}（第${v.from}-${v.to}格）：${v.conflict}`).join('\n')
+          + '\n';
+      }
+    }
+
+    const user = LP.fill(P.spine, {
+      book: bookDoc(book, 'book'),
+      cast: bookDoc(book, 'cast'),
+      rangeBlock,
+      fromStep, toStep,
+      count: toStep - fromStep + 1,
+      mainUnits, sideUnits,
+      midTurn: Math.round(mainUnits * 0.5),
+      lastTurn: Math.round(mainUnits * 0.75),
+      feedback: feedbackOf(book.steps.spine)
+    });
+    return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
+  }
+
+  /* 把新生成的格子合并进 book.spine（按 step 覆盖或追加） */
+  function mergeCells(book, newCells) {
+    if (!book.spine) book.spine = [];
+    const map = new Map(book.spine.map(c => [c.step, c]));
+    let added = 0, updated = 0;
+    newCells.forEach(nc => {
+      const old = map.get(nc.step);
+      if (old) {
+        /* 保留原 id，只更新内容 */
+        Object.assign(old, nc, { id: old.id });
+        updated++;
+      } else {
+        map.set(nc.step, Object.assign({ id: GRID.newId(0) }, nc));
+        added++;
+      }
+    });
+    book.spine = GRID.reindex([...map.values()]);
+    return { added, updated };
+  }
+
   async function genBookStep(book, key, onDelta, signal) {
     const P = LP.get();
     const target = book.target;
@@ -270,6 +381,8 @@
       const user = LP.fill(P.spine, {
         book: bookDoc(book, 'book'),
         cast: bookDoc(book, 'cast'),
+        rangeBlock: '【本次生成全书所有格子】',
+        fromStep: 1, toStep: mainUnits, count: mainUnits,
         mainUnits, sideUnits,
         midTurn: Math.round(mainUnits * 0.5),
         lastTurn: Math.round(mainUnits * 0.75),
@@ -1145,7 +1258,7 @@
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
-    progressAuditData, genAudit,
+    progressAuditData, genAudit, parseVolumes, volumePlan, genSpineRange, mergeCells,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
     genCellFill, parseCellText, cellText,
