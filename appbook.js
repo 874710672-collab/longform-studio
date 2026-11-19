@@ -323,6 +323,14 @@
         }
         row.appendChild(info);
 
+        /* 左侧：重做本卷结构（卷名/范围/目标/矛盾/三阶段），不碰格子 */
+        const opsL = el('div', 'vol-ops-l');
+        const reVol = el('button', 'mini vol-rebuild', '⟲ 重做卷');
+        reVol.title = '只重新生成这一卷的卷结构，不动格子和单元';
+        reVol.onclick = () => genOneVolumeUI(b, v);
+        opsL.appendChild(reVol);
+        row.appendChild(opsL);
+
         const ops = el('div', 'vol-ops');
         const ed = el('button', 'mini', '编辑');
         ed.onclick = () => editVolume(b, v);
@@ -494,6 +502,83 @@
         A.toast(diff !== 0 ? '已保存，后续卷已顺延 ' + diff + ' 格' : '已保存');
       };
     });
+  }
+
+  /* 只重做某一卷的卷结构（不动格子、不动单元） */
+  async function genOneVolumeUI(b, v) {
+    if (A.busy) return;
+    const fb = (b.steps.spine.feedback || '').trim();
+    let msg = '重新生成「卷' + v.vol + '　' + v.name + '」的卷结构？\n\n'
+      + '· 会重做：卷名、格范围、本卷目标、本卷矛盾、三阶段\n'
+      + '· 不会动：格子内容、单元内容\n'
+      + '· 其他卷的内容不受影响（只是格号可能顺延）\n';
+    msg += fb ? '\n本次会带上审核意见：\n' + fb.slice(0, 100) : '\n（当前没有审核意见）';
+    msg += '\n\n继续？';
+    if (!confirm(msg)) return;
+
+    const ctrl = new AbortController();
+    A.setBusy({ ctrl, label: '正在重做卷' + v.vol + '的结构', text: '' });
+    A.render();
+    A.setStream('');
+    try {
+      const out = await LEngine.genOneVolume(b, v, (d, full) => {
+        A.setBusy(Object.assign({}, A.busy, { text: full }));
+        A.setStream(full); A.updateDock();
+      }, ctrl.signal);
+      if (!out || !String(out).trim()) throw new Error('返回为空');
+
+      const stages = (b.stages && b.stages.length) ? b.stages : LEngine.parseStages(LEngine.docOf(b.steps.book));
+      const vols = LEngine.parseVolumes(out, stages);
+      if (!vols.length) throw new Error('没有解析出卷，检查返回格式');
+
+      /* 只取这一卷；若模型多输出了别的卷，一律忽略 */
+      let nv = vols.find(x => x.vol === v.vol) || vols[0];
+      nv.id = v.id;
+      nv.vol = v.vol;
+      nv.stageNum = v.stageNum || nv.stageNum;
+      nv.stageId = v.stageId || nv.stageId;
+
+      /* 起止格：左边界不许侵入上一卷（那会改到别人）；
+         右边界可以变长，代价是后面的卷整体顺延 */
+      const sorted = (b.volumes || []).slice().sort((a, c) => a.vol - c.vol);
+      const idx = sorted.findIndex(x => x.vol === v.vol);
+      const prevV = idx > 0 ? sorted[idx - 1] : null;
+      const lo = prevV ? prevV.toStep + 1 : 1;
+
+      let nf = Math.max(lo, nv.fromStep);
+      let nt = Math.max(nf, nv.toStep);
+      if (nf !== nv.fromStep) {
+        A.toast('起点已抬到第 ' + nf + ' 格（不能侵入上一卷）');
+      }
+      nv.fromStep = nf;
+      nv.toStep = nt;
+      nv.phases = LEngine.normalizePhases(nf, nt, nv.phases || []);
+      nv.phasesEdited = false;
+
+      /* 计算后续卷的顺延量 */
+      const diff = (nt - nf) - (v.toStep - v.fromStep);
+
+      /* 只替换这一卷，其他卷对象原样保留 */
+      const realIdx = b.volumes.findIndex(x => x.vol === v.vol);
+      b.volumes[realIdx] = nv;
+
+      /* 后续各卷整体平移（内容不变，只改格号） */
+      if (diff !== 0) {
+        b.volumes.filter(x => x.vol > v.vol).sort((a, c) => a.vol - c.vol).forEach(x => {
+          x.fromStep += diff;
+          x.toStep += diff;
+          (x.phases || []).forEach(ph => { ph.fromStep += diff; ph.toStep += diff; });
+        });
+      }
+
+      Books.pushHistory(b, '重做卷结构', '卷' + v.vol + '：' + nf + '-' + nt + '格' + (diff ? '，后续卷顺延 ' + diff + ' 格' : ''));
+      A.persist();
+      A.setBusy(null); A.render();
+      A.toast('卷' + v.vol + '已重做' + (diff ? '，后续卷顺延 ' + diff + ' 格' : ''));
+    } catch (e) {
+      A.setBusy(null); A.endStream(); A.render();
+      if (e.name !== 'AbortError') alert('生成失败：' + e.message);
+    }
   }
 
   /* 生成一卷 */
