@@ -301,6 +301,46 @@
     else d.appendChild(el('div', 'relay-b', '无'));
     c.appendChild(d);
 
+    /* 伏笔回收匹配情况 */
+    d = sec('回收匹配');
+    const payText = r.pays || '';
+    if (!payText || payText === '无') {
+      d.appendChild(el('div', 'relay-b', '本篇没有回收伏笔'));
+    } else {
+      const mres = LEngine.matchForeshadow(
+        payText,
+        (b.foreshadow || []).filter(f => f.status === 'open'),
+        b.foreshadow || []
+      );
+      d.appendChild(el('div', 'relay-b', '原文：' + payText));
+      if (mres.byId.length) {
+        const line = el('div', 'fs-match ok');
+        line.textContent = '✓ 编号匹配：' + mres.byId.map(f => f.id + '「' + f.desc.slice(0, 10) + '」').join('、');
+        d.appendChild(line);
+      }
+      if (mres.byText.length) {
+        const line = el('div', 'fs-match ok');
+        line.textContent = '✓ 描述匹配：' + mres.byText.map(f => f.id).join('、');
+        d.appendChild(line);
+      }
+      if (mres.alreadyPaid.length) {
+        const line = el('div', 'fs-match warn');
+        line.textContent = '⚠ 这几条之前已标记为已收：' + mres.alreadyPaid.join('、');
+        d.appendChild(line);
+      }
+      if (mres.unknownIds.length) {
+        const line = el('div', 'fs-match bad');
+        line.textContent = '✕ 伏笔库里没有这些编号：' + mres.unknownIds.join('、') + '（检查是否写错）';
+        d.appendChild(line);
+      }
+      if (!mres.matched.length && !mres.alreadyPaid.length && !mres.unknownIds.length) {
+        const line = el('div', 'fs-match bad');
+        line.textContent = '✕ 没有匹配到任何伏笔，这条回收不会生效';
+        d.appendChild(line);
+      }
+    }
+    c.appendChild(d);
+
     d = sec('下一单元必须接住');
     if (r.must.length) r.must.forEach((x, i) => d.appendChild(el('div', 'relay-b', (i + 1) + '. ' + x)));
     else d.appendChild(el('div', 'relay-b warn-txt', '没解析到——这是最关键的一栏，空了下一篇接不住'));
