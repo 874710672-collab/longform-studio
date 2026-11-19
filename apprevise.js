@@ -162,5 +162,100 @@
     }
   }
 
-  window.REVISEUI = { reviseKeep, reviseFresh, regen, partReviseKeep, partReviseFresh };
+  /* 润色环节：按意见修订当前稿
+     - 短稿（≤8000 字）整篇修订
+     - 长稿按节拆分，逐节修订后拼回
+  */
+  const WHOLE_LIMIT = 8000;
+
+  async function revisePolish(b, u) {
+    const ps = u.steps.polish;
+    const fb = (ps.feedback || '').trim();
+    if (!fb) { A.toast('先在右边写审核意见'); return; }
+    const doc = A.docOf(ps);
+    if (!doc) { A.toast('还没有稿子'); return; }
+
+    const words = LEngine.cw(doc);
+
+    /* 短稿：整篇修订 */
+    if (words <= WHOLE_LIMIT) {
+      const ctrl = new AbortController();
+      A.setBusy({ ctrl, label: '正在按意见改（整篇）', text: '' });
+      A.render();
+      try {
+        const out = await REVISE.chat(b, u, 'polish', doc, fb,
+          (d, full) => {
+            A.setBusy(Object.assign({}, A.busy, { text: full }));
+            A.setStream(full); A.updateDock();
+          }, ctrl.signal, 'unit');
+        if (!out || !String(out).trim()) throw new Error('返回为空');
+        ps.versions.push({ text: String(out).trim(), at: Date.now(), note: '按意见改' });
+        ps.sel = ps.versions.length - 1;
+        ps.status = 'ready';
+        Books.save(b);
+        A.setBusy(null); A.render();
+        A.toast('已按意见修改，旧稿保留在「稿 N」里');
+      } catch (e) {
+        A.setBusy(null); A.endStream(); A.render();
+        if (e.name !== 'AbortError') alert('失败：' + e.message);
+      }
+      return;
+    }
+
+    /* 长稿：按节拆分修订 */
+    const parts = LEngine.splitForPolish(doc);
+    if (!confirm(
+      '这一篇约 ' + words + ' 字，超过 ' + WHOLE_LIMIT + ' 字。\n\n' +
+      '会拆成 ' + parts.length + ' 段，逐段按意见修改后拼回。\n' +
+      '（每段都会带上你的完整意见）\n\n继续？'
+    )) return;
+
+    const ctrl = new AbortController();
+    let cancelled = false;
+    ctrl.signal.addEventListener('abort', () => { cancelled = true; });
+    A.setBusy({ ctrl, label: '正在分段按意见改', text: '' });
+    A.render();
+
+    try {
+      const out = [];
+      for (let i = 0; i < parts.length; i++) {
+        if (cancelled) throw new Error('已停止');
+        const part = parts[i];
+        const prevTail = out.length ? out[out.length - 1].slice(-300) : '';
+        const nextHead = i + 1 < parts.length ? (parts[i + 1].body || '').slice(0, 200) : '';
+        A.setBusy(Object.assign({}, A.busy, { label: '第 ' + (i + 1) + '/' + parts.length + ' 段', text: '' }));
+        A.updateDock();
+
+        const rule = LP.fill(LP.get().reviseRule, { prevText: part.body, feedback: fb });
+        const sys = LP.get().system + '\n\n' + rule
+          + '\n\n（这是整篇的第 ' + (i + 1) + '/' + parts.length + ' 段，只处理这一段。）'
+          + (prevTail ? '\n\n上一段结尾（不要重复）：\n' + prevTail : '')
+          + (nextHead ? '\n\n下一段开头（不要提前写）：\n' + nextHead : '');
+
+        const r = await API.chat({
+          messages: API.buildMessages(sys, '请按作者意见修改上面这一段。'),
+          onDelta: (d, full) => {
+            A.setBusy(Object.assign({}, A.busy, { text: full }));
+            A.setStream(full); A.updateDock();
+          },
+          signal: ctrl.signal
+        });
+        out.push(String(r).trim());
+      }
+
+      const merged = out.join('\n\n');
+      ps.versions.push({ text: merged, at: Date.now(), note: '按意见改（分段）' });
+      ps.sel = ps.versions.length - 1;
+      ps.status = 'ready';
+      Books.save(b);
+      A.setBusy(null); A.render();
+      A.toast('已分段按意见修改，旧稿保留');
+    } catch (e) {
+      A.setBusy(null); A.endStream(); A.render();
+      if (e.name !== 'AbortError' && e.message !== '已停止') alert('失败：' + e.message);
+      else A.toast('已停止');
+    }
+  }
+
+  window.REVISEUI = { reviseKeep, reviseFresh, regen, partReviseKeep, partReviseFresh, revisePolish };
 })();
