@@ -11,9 +11,11 @@
     const mainUnits = Math.max(8, Math.round(book.target / 11000));
     const sideUnits = Math.max(4, Math.round(mainUnits * 0.25));
     if (key === 'book') {
+      const phases = Math.max(3, Math.min(8, Math.round(mainUnits / 9)));
+      const perPhase = Math.max(3, Math.round(mainUnits / phases));
       return LP.fill(P.book, {
         brief: LEngine.briefText(book.brief), target: book.target,
-        units: mainUnits, feedback: ''
+        units: mainUnits, mainUnits, phases, perPhase, feedback: ''
       });
     }
     if (key === 'cast') {
