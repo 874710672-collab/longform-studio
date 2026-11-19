@@ -68,6 +68,12 @@
     A.app.streamEl = pre;
   }
 
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   /* ---------- 三级推进卡片（总纲环节） ---------- */
   function stagesCard(b) {
     const c = el('div', 'card');
