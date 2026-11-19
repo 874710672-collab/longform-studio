@@ -31,13 +31,39 @@
   }
 
   /* 从一堆字段里找出「姓名列」的起始下标 */
+  /* 称谓词：妻子、林母、村支书这类不是人名，是第一列的标签 */
+  const KINSHIP = [
+    '妻子', '丈夫', '儿子', '女儿', '父亲', '母亲', '爸爸', '妈妈',
+    '林母', '林父', '老母', '老父', '媳妇', '老公', '老婆',
+    '村支书', '村长', '支书', '会计', '主任', '书记',
+    '供销员', '售货员', '司机', '老师', '医生', '护士',
+    '伙计', '邻居', '房东', '老板', '工头', '队长'
+  ];
+
+  function isKinshipOrTitle(s) {
+    const t = String(s || '').trim();
+    if (!t) return false;
+    if (KINSHIP.indexOf(t) >= 0) return true;
+    /* 「林母」「王婶」「张叔」这类：姓 + 亲属称谓 */
+    if (/^[\u4e00-\u9fa5]{1,2}(母|父|婶|叔|伯|嫂|婆|爷|奶|哥|姐|弟|妹)$/.test(t)) return true;
+    /* 「X支书」「X主任」这类：职务后缀 */
+    if (/(支书|村长|书记|主任|会计|队长|老板|司机|老师|医生)$/.test(t) && t.length <= 5) return true;
+    return false;
+  }
+
   function detectOffset(f) {
-    /* 情况 A/B：第一列是标签，第二列是姓名，第三列是性别 */
-    if (isRoleTag(f[0]) && !isGender(f[0])) return 1;
-    /* 情况 C：第一列就是姓名，第二列是性别 */
+    /* 关键：先看第二列是不是性别 —— 是的话第一列一定是姓名 */
     if (isGender(f[1])) return 0;
-    /* 兜底：如果第二列也是人名的样子，仍按「第一列是标签」处理 */
-    if (isRoleTag(f[0])) return 1;
+
+    /* 第三列是性别 → 第一列是标签、第二列是姓名（称谓｜姓名｜性别） */
+    if (isGender(f[2])) return 1;
+
+    /* 第一列是明确的角色标签（主角/反派/配角…）→ 偏移 1 */
+    if (isRoleTag(f[0]) && !isGender(f[0])) return 1;
+
+    /* 第一列是称谓/职务（妻子、林母、村支书）→ 偏移 1 */
+    if (isKinshipOrTitle(f[0])) return 1;
+
     return 0;
   }
 
