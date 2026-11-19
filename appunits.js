@@ -43,12 +43,10 @@
     bgrid.onclick = () => { A.setView('grid'); A.render(); };
     const bn = el('button', 'mini on', '＋ 新建单元');
     bn.onclick = () => addUnit(b);
-    const bre = el('button', 'mini', '⚙ 重排');
-    bre.onclick = () => openRepair(b);
     const bchk = el('button', 'mini', '▦ 容量体检');
     bchk.onclick = () => capacityReport(b);
     bar.appendChild(bbook); bar.appendChild(bfacts); bar.appendChild(bgrid);
-    bar.appendChild(bn); bar.appendChild(bre); bar.appendChild(bchk);
+    bar.appendChild(bn); bar.appendChild(bchk);
     top.appendChild(bar);
     stage.appendChild(top);
 
@@ -420,39 +418,6 @@
     A.persist(); A.render();
   }
 
-  /* ---------- 重排 ---------- */
-  function openRepair(b) {
-    let html = `<h2>重排与体检<button class="close">×</button></h2>`;
-    html += `<div class="hint">重排会按主线推进表重建单元列表，已写好且不冲突的单元会保留。</div>`;
-    html += `<div class="sheet-acts"><button class="ghost-btn" id="reexport">导出备份</button><button class="primary-btn" id="rebuild">按推进表重建</button></div>`;
-    html += `<h3 style="margin-top:20px;font-size:15px">最近的结构变动</h3><div class="hist-list">`;
-    (b.history || []).slice(0, 12).forEach(h => {
-      html += `<div class="hist-row"><span>${A.fmtTime(h.at)}</span><b>${h.action}</b><span class="sub">${h.detail || ''}</span></div>`;
-    });
-    if (!(b.history || []).length) html += '<div class="hint">还没有记录</div>';
-    html += '</div>';
-    A.sheet(html, (root) => {
-      root.querySelector('#rebuild').onclick = () => {
-        if (!b.spine.length) { toast('还没有主线推进表'); return; }
-        if (!confirm('按推进表重建单元列表？已有的主线单元内容会尽量保留。')) return;
-        const n = LEngine.buildUnitsFromSpine(b, true);
-        LEngine.markStale(b, 0, '重排');
-        Books.pushHistory(b, '重排单元列表', n + ' 篇');
-        A.persist(); A.closeSheet(); A.render();
-        toast('已重建 ' + n + ' 个单元，全部标记待重跑');
-      };
-      root.querySelector('#reexport').onclick = () => {
-        const data = JSON.stringify(b, null, 2);
-        copyTextRaw(data);
-      };
-    });
-  }
-
-  function copyTextRaw(t) {
-    if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => toast('已复制到剪贴板（' + Math.round(t.length / 1024) + 'KB）'), () => toast('复制失败'));
-    else toast('复制失败');
-  }
-
   /* ---------- 容量体检 ---------- */
   function capacityReport(b) {
     const issues = [];
@@ -526,4 +491,32 @@
   }
 
   window.UNITUI = { renderUnitList, openUnit };
+
+  /* 供设置页复用：渲染结构变动记录 */
+  window.UNITUI.historyList = function (b) {
+    const wrap = document.createElement('div');
+    wrap.className = 'hist-list';
+    const list = (b.history || []).slice(0, 20);
+    if (!list.length) {
+      const d = document.createElement('div');
+      d.className = 'hint';
+      d.textContent = '还没有记录';
+      wrap.appendChild(d);
+      return wrap;
+    }
+    list.forEach(h => {
+      const row = document.createElement('div');
+      row.className = 'hist-row';
+      const t = document.createElement('span');
+      t.textContent = A.fmtTime(h.at);
+      const a = document.createElement('b');
+      a.textContent = h.action;
+      const d = document.createElement('span');
+      d.className = 'sub';
+      d.textContent = h.detail || '';
+      row.appendChild(t); row.appendChild(a); row.appendChild(d);
+      wrap.appendChild(row);
+    });
+    return wrap;
+  };
 })();
