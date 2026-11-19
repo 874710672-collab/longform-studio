@@ -883,16 +883,24 @@ body.dock-hidden #stage,
 
 /* ---------- 分卷面板 ---------- */
 .vol-list{display:flex;flex-direction:column;gap:7px;margin:10px 0}
-/* 有阶段卡片时改为上下布局：头行(名称+按钮) / 阶段区 */
+/* 三列网格：左按钮 | 信息 | 右按钮，阶段区独占第二行 */
 .vol-row{
-  display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  grid-template-areas:
+    "left info ops"
+    "phases phases phases";
+  align-items:start;gap:8px 8px;
   padding:9px 11px;border-radius:10px;
   background:var(--panel2);border:1px solid var(--line);
   border-left:2px solid var(--accent);
 }
-.vol-row .vol-info{flex:1 1 auto;min-width:0}
-.vol-row .vol-ops{flex:0 0 auto;margin-left:auto}
-.vol-phases{flex:1 0 100%;width:100%}
+.vol-row .vol-ops-l{grid-area:left;display:flex;gap:5px;align-items:flex-start}
+.vol-row .vol-info{grid-area:info;min-width:0}
+.vol-row .vol-ops{grid-area:ops;display:flex;gap:5px;align-items:flex-start;flex-wrap:nowrap}
+.vol-row .vol-phases{grid-area:phases;width:100%;min-width:0}
+.vol-row .vol-ops button,
+.vol-row .vol-ops-l button{white-space:nowrap}
 .vol-row.done{border-left-color:var(--ok);background:rgba(90,209,155,.05)}
 .vol-info{flex:1;min-width:0}
 .vol-title{display:flex;align-items:center;gap:7px;margin-bottom:3px}
@@ -957,3 +965,22 @@ body.dock-hidden #stage,
 .ph-row2{display:flex;align-items:center;gap:6px;margin-top:4px}
 .ph-row2 .ph-tag{font-size:11px;color:#9aa4b2;flex:0 0 28px}
 .ph-row2 input{flex:1;padding:3px 6px;font-size:12px}
+
+/* 左侧「重做卷」按钮 */
+.vol-ops-l{display:flex;gap:5px;flex:0 0 auto;order:-1}
+.vol-row .vol-ops-l{order:-1}
+.vol-rebuild{
+  border-color:rgba(185,166,255,.35)!important;
+  color:var(--accent2,#b9a6ff)!important;
+  font-size:11px!important;
+}
+.vol-rebuild:hover{background:rgba(185,166,255,.12)!important}
+/* 手机窄屏：压缩卷卡按钮 */
+.vol-row .vol-ops button,
+.vol-row .vol-ops-l button{
+  padding:3px 7px!important;font-size:10px!important;line-height:1.4!important;
+}
+@media (max-width:430px){
+  .vol-row{grid-template-columns:auto minmax(0,1fr) auto;gap:6px}
+  .vol-row .vol-ops{gap:4px}
+}
