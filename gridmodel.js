@@ -27,7 +27,14 @@
 
   /* 按 order 排序后重算显示序号 */
   function reindex(cells) {
-    const sorted = [...(cells || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+    const key = c => {
+      const o = Number(c && c.order);
+      if (Number.isFinite(o) && o > 0) return o;
+      const st = Number(c && c.step);
+      if (Number.isFinite(st) && st > 0) return st;
+      return 1e9;   /* 都没有的排到最后，避免挤乱已有的顺序 */
+    };
+    const sorted = [...(cells || [])].sort((a, b) => key(a) - key(b));
     sorted.forEach((c, i) => {
       c.order = i + 1;
       c.step = i + 1;
