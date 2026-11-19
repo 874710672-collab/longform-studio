@@ -321,8 +321,12 @@
       '',
       `规模：全书主线共 ${mainUnits} 格，分 ${phases} 卷，每卷约 ${perPhase} 格。`,
       '',
-      '要求：严格按下面格式输出全部 ' + phases + ' 卷，一卷一行，不要解释：',
+      '要求：严格按下面格式输出全部 ' + phases + ' 卷。每卷先写一行卷头，再写 3 行阶段，不要解释：',
+      '',
       '卷N｜卷名｜所属级｜起止格｜本卷目标｜本卷矛盾',
+      '  阶段1｜起止格｜阶段名｜这一阶段主角在做什么、卡在哪',
+      '  阶段2｜起止格｜阶段名｜这一阶段主角在做什么、卡在哪',
+      '  阶段3｜起止格｜阶段名｜这一阶段主角在做什么、卡在哪',
       '',
       '格式说明：',
       '- 卷N：卷号，从 1 开始连续',
@@ -331,31 +335,65 @@
       '- 起止格：如"第1-17格"，必须连续覆盖第 1 格到第 ' + mainUnits + ' 格，不许有空隙或重叠',
       '- 本卷目标：这一卷主角要达成什么（一句话）',
       '- 本卷矛盾：这一卷的核心阻力（一句话）',
+      '- 阶段N｜起止格｜阶段名：阶段要把本卷的格分成 3 段，首尾相接、覆盖本卷全部格子，不许有空隙',
+      '- 阶段名：4-8 字，如"被逼入局""暗中蓄力""正面摊牌"',
+      '- 阶段说明：写清这一段格子里主角在做什么、阻力从哪来（一句话）',
+      '',
+      '卷内三阶段必须体现「起 → 承/转 → 合」的节奏：',
+      '  阶段1（前 1/3）：主角被卷进局面，处境变坏，还不能反击；',
+      '  阶段2（中间 1/3）：主角暗中准备、试探、付代价，蓄而不发；',
+      '  阶段3（后 1/3）：矛盾摊到明面上，本卷目标达成或失败收尾。',
+      '如果本卷格数 ≥ 22 格，可以分 4 段，格式同上。',
       '',
       '硬性要求：',
       '1. 每卷的格数尽量均衡（约 ' + perPhase + ' 格），可按剧情需要浮动，但总和必须等于 ' + mainUnits + ' 格',
       '2. 卷的归属级必须符合三级推进的卷号范围',
-      '3. 每卷目标必须是具体的动作结果，不许写"继续发展"这类空话'
+      '3. 每卷目标必须是具体的动作结果，不许写"继续发展"这类空话',
+      '4. 每卷必须有 3 行阶段（格数 ≥22 的卷可为 4 行），阶段格号必须刚好覆盖本卷',
+      '5. 三个阶段不许写成同一件事的三种说法，必须是三种不同的处境'
     ].join('\n');
 
     return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
   }
 
-  /* 解析生成的卷结构 */
+  /* 解析生成的卷结构（含卷内三阶段） */
   function parseVolumes(text, stages) {
     const t = String(text || '');
     const vols = [];
-    t.split('\n').forEach(line => {
-      const s = line.trim().replace(/^[-·*]\s*/, '');
-      if (!s || s.indexOf('｜') < 0) return;
-      const f = s.split(/[｜|]/).map(x => x.trim());
+    let cur = null;
+    const numMap = { '一': 1, '二': 2, '三': 3, '1': 1, '2': 2, '3': 3 };
+
+    t.split('\n').forEach(rawLine => {
+      const line = rawLine.replace(/\s+$/, '');
+      const s0 = line.trim().replace(/^[-·*]\s*/, '');
+      if (!s0) return;
+
+      /* —— 阶段行：阶段N｜起止格｜阶段名｜说明 —— */
+      const ph = s0.match(/^阶段\s*([0-9一二三四五六七八九十]+)\s*[｜|]/);
+      if (ph) {
+        if (!cur) return;
+        const f = s0.split(/[｜|]/).map(x => x.trim());
+        const rM = String(f[1] || '').match(/(\d+)\s*[-—~到至]\s*(\d+)/);
+        if (!rM) return;
+        cur.phases.push({
+          no: cur.phases.length + 1,
+          fromStep: parseInt(rM[1], 10),
+          toStep: parseInt(rM[2], 10),
+          name: f[2] || ('阶段' + (cur.phases.length + 1)),
+          note: f[3] || ''
+        });
+        return;
+      }
+
+      /* —— 卷行：卷N｜卷名｜所属级｜起止格｜目标｜矛盾 —— */
+      if (s0.indexOf('｜') < 0) return;
+      const f = s0.split(/[｜|]/).map(x => x.trim());
       if (f.length < 6) return;
       const numM = String(f[0]).match(/\d+/);
       const rangeM = String(f[3] || '').match(/(\d+)\s*[-—~到至]\s*(\d+)/);
       const stageM = String(f[2] || '').match(/第?\s*([一二三1-3])\s*级/);
       if (!numM || !rangeM) return;
-      const numMap = { '一': 1, '二': 2, '三': 3, '1': 1, '2': 2, '3': 3 };
-      vols.push({
+      cur = {
         id: 'v' + numM[0],
         vol: parseInt(numM[0], 10),
         name: f[1] || ('卷' + numM[0]),
@@ -364,11 +402,63 @@
         fromStep: parseInt(rangeM[1], 10),
         toStep: parseInt(rangeM[2], 10),
         goal: f[4] || '',
-        conflict: f[5] || ''
-      });
+        conflict: f[5] || '',
+        phases: []
+      };
+      vols.push(cur);
     });
+
+    /* 阶段兜底：没有解析出阶段的卷，按三等分补齐 */
+    vols.forEach(v => {
+      if (!v.phases || !v.phases.length) v.phases = autoPhases(v);
+      else v.phases = normalizePhases(v);
+    });
+
     vols.sort((a, b) => a.vol - b.vol);
     return vols;
+  }
+
+  /* 按起止格三等分（格数 ≥22 时四等分） */
+  function autoPhases(v) {
+    const from = v.fromStep, to = v.toStep;
+    const total = to - from + 1;
+    const n = total >= 22 ? 4 : 3;
+    const names = ['被逼入局', '暗中蓄力', '正面摊牌', '收束余波'];
+    const out = [];
+    let start = from;
+    for (let i = 0; i < n; i++) {
+      const remain = total - (start - from);
+      const cnt = Math.round(remain / (n - i));
+      const end = i === n - 1 ? to : Math.min(to, start + cnt - 1);
+      out.push({
+        no: i + 1, fromStep: start, toStep: end,
+        name: names[i] || ('阶段' + (i + 1)), note: ''
+      });
+      start = end + 1;
+      if (start > to) break;
+    }
+    return out;
+  }
+
+  /* 规整阶段：补空隙、消重叠、强制覆盖本卷 */
+  function normalizePhases(v) {
+    const from = v.fromStep, to = v.toStep;
+    let arr = (v.phases || [])
+      .filter(p => p.fromStep && p.toStep)
+      .map(p => Object.assign({}, p))
+      .sort((a, b) => a.fromStep - b.fromStep);
+    if (!arr.length) return autoPhases(v);
+
+    arr[0].fromStep = from;
+    arr[arr.length - 1].toStep = to;
+    for (let i = 0; i < arr.length - 1; i++) {
+      /* 相邻阶段首尾相接 */
+      arr[i].toStep = Math.max(arr[i].fromStep, Math.min(arr[i].toStep, arr[i + 1].fromStep - 1));
+      arr[i + 1].fromStep = arr[i].toStep + 1;
+    }
+    arr = arr.filter(p => p.toStep >= p.fromStep);
+    arr.forEach((p, i) => { p.no = i + 1; });
+    return arr.length ? arr : autoPhases(v);
   }
 
   /* 生成某一卷的推进表格子（fromStep~toStep） */
@@ -384,11 +474,17 @@
     const vol = vols.find(v => fromStep >= v.fromStep && fromStep <= v.toStep);
     if (vol) {
       const stage = (book.stages || []).find(st => st.id === vol.stageId);
+      const phs = (vol.phases && vol.phases.length) ? vol.phases : autoPhases(vol);
       rangeBlock = `【本次生成的是「卷${vol.vol}　${vol.name}」】\n`
         + `本卷覆盖第 ${vol.fromStep}-${vol.toStep} 格\n`
         + `本卷目标：${vol.goal || '（未填）'}\n`
         + `本卷矛盾：${vol.conflict || '（未填）'}\n`
         + (stage ? `所属级：第${stage.num}级「${stage.name}」　级目标：${stage.goal}　级矛盾：${stage.conflict}\n` : '')
+        + `\n【本卷分 ${phs.length} 个阶段，必须严格按此分段推进】\n`
+        + phs.map(p2 => `阶段${p2.no}　第${p2.fromStep}-${p2.toStep}格｜${p2.name}${p2.note ? '：' + p2.note : ''}`).join('\n')
+        + `\n\n▶ 每格的「推进了什么」必须落在它所属阶段的范围内：\n`
+        + `  处在阶段1的格子不许提前解决问题，处在阶段3的格子不许还在铺垫。\n`
+        + `▶ 相邻阶段的交界处（如第${phs[0] ? phs[0].toStep : vol.fromStep}格）必须是明显的转折，不能平滑过渡。\n`
         + (vol.vol > 1 ? `这是全书的一部分，不要在第 1 格起重新编号，也不要提前解决后面几卷的问题。\n` : '');
     }
     /* —— 关键：明确「这是全书的第几格」，防止 AI 当成新开头重写 —— */
@@ -1424,7 +1520,7 @@
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
-    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, mergeCells, detectRestart,
+    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, autoPhases, normalizePhases, mergeCells, detectRestart,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
     genCellFill, parseCellText, cellText,
