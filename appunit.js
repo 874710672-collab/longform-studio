@@ -288,7 +288,7 @@
 
     d = sec('状态变化');
     if (r.changes.length) r.changes.forEach(x => {
-      const row = el('div', 'kv');
+      const row = el('div', 'kv long');
       row.appendChild(el('span', '', x.name));
       row.appendChild(el('b', '', x.what));
       d.appendChild(row);
