@@ -929,3 +929,18 @@ body.dock-hidden #stage,
 .vg-head b{font-size:13px}
 .vg-sub{font-size:10px;color:var(--sub);margin-left:auto}
 .vol-ops{display:flex;gap:5px;flex:0 0 auto}
+
+/* 卷内三阶段 */
+.vol-phases{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.vol-phase{font-size:11px;line-height:1.5;padding:2px 6px;border-radius:6px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+  color:var(--fg2,#9aa4b2);white-space:nowrap}
+.vol-phase:nth-child(1){border-left:2px solid #f0a33a}
+.vol-phase:nth-child(2){border-left:2px solid #5aa9e6}
+.vol-phase:nth-child(3){border-left:2px solid #7ddc8a}
+.vol-phase:nth-child(4){border-left:2px solid #b98ee0}
+.ph-edit{margin:8px 0;padding:8px;border-radius:8px;background:rgba(255,255,255,.04)}
+.ph-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.ph-no{font-size:12px;color:var(--fg2,#9aa4b2);white-space:nowrap}
+.ph-edit input{padding:4px 6px;font-size:13px}
+.ph-edit .ph-note{width:100%;margin-top:2px}
