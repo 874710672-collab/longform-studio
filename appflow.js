@@ -569,14 +569,14 @@
         /* 机械拼接各节成整篇，作为润色环节的初稿（不调用 AI） */
         const joined = LEngine.joinDraft(u);
         const ps = u.steps.polish;
-        if (!ps || !ps.versions || !ps.versions.length) {
-          u.steps.polish.versions = [{ text: joined, at: Date.now(), note: '正文拼接' }];
-          u.steps.polish.sel = 0;
-          u.steps.polish.status = 'idle';   /* 等用户决定要不要润色 */
-        } else {
-          /* 已有润色稿：不动，只更新正文快照 */
-          ps.status = ps.status || 'idle';
+        if (!ps.versions) ps.versions = [];
+        /* 总是追加一份新的拼接稿（旧稿保留） */
+        const lastV = ps.versions[ps.versions.length - 1];
+        if (!lastV || lastV.text !== joined) {
+          ps.versions.push({ text: joined, at: Date.now(), note: '正文拼接' });
         }
+        ps.sel = ps.versions.length - 1;
+        ps.status = 'idle';   /* 等用户决定要不要润色 */
         s.versions = [{ text: joined, at: Date.now() }];
         s.sel = 0;
         s.status = 'done';
@@ -663,7 +663,10 @@
       REVISEUI.partReviseKeep(b, u, u.steps.draft.partIdx || 0);
       return;
     }
-    if (A.view === 'unit' && A.curUnitStep === 'polish') { polishUnit(b, A.curUnit()); return; }
+    if (A.view === 'unit' && A.curUnitStep === 'polish') {
+      REVISEUI.revisePolish(b, A.curUnit());
+      return;
+    }
     REVISEUI.reviseKeep();
   };
   approveBtn.onclick = () => { if (!A.busy) approve(); };
