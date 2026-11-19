@@ -400,6 +400,20 @@
       const inRange = cells.filter(c => c.step >= v.fromStep && c.step <= v.toStep);
       if (!inRange.length) throw new Error('生成的格号不在 ' + v.fromStep + '-' + v.toStep + ' 范围内');
 
+      /* 防「重写开头」检查 */
+      const warn = LEngine.detectRestart(b, inRange, v.fromStep);
+      if (warn) {
+        const lines = warn.slice(0, 5).map(h => '· 第' + h.step + '格「' + h.title + '」：' + h.why).join('\n');
+        const go = confirm('⚠ 检测到这一卷可能又从头写了一遍：\n\n' + lines
+          + '\n\n原因通常是模型把第 ' + v.fromStep + ' 格当成了故事开头。\n\n'
+          + '【取消】= 丢弃这次结果，稍后重新生成\n【确定】= 仍然保存');
+        if (!go) {
+          A.setBusy(null); A.endStream(); A.render();
+          A.toast('已丢弃本次生成结果');
+          return;
+        }
+      }
+
       const rep = LEngine.mergeCells(b, inRange);
       const sync = LEngine.syncUnitsWithSpine(b);
       Books.pushHistory(b, '分卷生成', '卷' + v.vol + '：新增 ' + rep.added + ' · 更新 ' + rep.updated);
