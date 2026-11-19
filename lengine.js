@@ -351,9 +351,19 @@
       '3. 每卷目标必须是具体的动作结果，不许写"继续发展"这类空话',
       '4. 每卷必须有 3 行阶段（格数 ≥22 的卷可为 4 行），阶段格号必须刚好覆盖本卷',
       '5. 三个阶段不许写成同一件事的三种说法，必须是三种不同的处境'
-    ].join('\n');
+    ];
 
-    return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
+    /* 审核意见：让「重新生成全部卷」也能按意见改 */
+    const fb = feedbackOf(book.steps.spine);
+    if (fb) {
+      user.push('', '【上一版卷结构的问题，这一版必须改掉】', fb);
+      user.push('');
+      user.push('注意：上面的意见优先于其他要求。如果意见指出某一卷有问题，'
+        + '只重做那一卷；如果意见涉及整本书的分卷节奏，就整体调整。'
+        + '不要因为改一卷而丢掉其他卷已经正确的内容。');
+    }
+
+    return API.chat({ messages: API.buildMessages(P.system, user.join('\n')), onDelta, signal });
   }
 
   /* 解析生成的卷结构（含卷内三阶段） */
