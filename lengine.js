@@ -244,43 +244,131 @@
 
   /* ================= 分卷 ================= */
 
-  /* 从总纲里解析【全书分卷】 */
-  function parseVolumes(bookText) {
+  /* ================= 级与卷 ================= */
+
+  /* 从总纲里解析【三级推进】→ 3 个级 */
+  function parseStages(bookText) {
     const t = String(bookText || '');
-    const m = t.match(/【全书分卷】([\s\S]*?)(?=【|$)/);
+    const m = t.match(/【三级推进】([\s\S]*?)(?=【|$)/);
     if (!m) return [];
+    const body = m[1];
+    const stages = [];
+    const re = /第([一二三])级\s*[｜|]\s*([^\n]*)\n([\s\S]*?)(?=第[一二三]级\s*[｜|]|$)/g;
+    let mm;
+    const idxMap = { 一: 1, 二: 2, 三: 3 };
+    while ((mm = re.exec(body))) {
+      const n = idxMap[mm[1]];
+      const name = (mm[2] || '').trim().replace(/[（(].*?[）)]/g, '').trim();
+      const rest = mm[3];
+      const goal = (rest.match(/目标\s*[：:]\s*([^\n]+)/) || [])[1] || '';
+      const conflict = (rest.match(/矛盾\s*[：:]\s*([^\n]+)/) || [])[1] || '';
+      const cover = (rest.match(/覆盖\s*[：:]\s*([^\n]+)/) || [])[1] || '';
+      const rng = String(cover).match(/(\d+)\s*[-—~到至]\s*(\d+)/);
+      stages.push({
+        id: 's' + n,
+        num: n,
+        name: name || ('第' + mm[1] + '级'),
+        goal: goal.trim(),
+        conflict: conflict.trim(),
+        fromVol: rng ? parseInt(rng[1], 10) : 0,
+        toVol: rng ? parseInt(rng[2], 10) : 0
+      });
+    }
+    stages.sort((a, b) => a.num - b.num);
+    return stages;
+  }
+
+  /* 主线单元数 & 卷数 */
+  function sizePlan(book) {
+    const mainUnits = Math.max(8, Math.round((book.target || 380000) / 11000));
+    const phases = Math.max(3, Math.min(8, Math.round(mainUnits / 9)));
+    const perPhase = Math.max(3, Math.round(mainUnits / phases));
+    return { mainUnits, phases, perPhase };
+  }
+
+  /* 综合计划：级 + 卷（用于 UI） */
+  function volumePlan(book) {
+    const { mainUnits, phases, perPhase } = sizePlan(book);
+    const stages = (book.stages && book.stages.length) ? book.stages : parseStages(bookDoc(book, 'book'));
+    const volumes = (book.volumes && book.volumes.length) ? book.volumes : [];
+    return {
+      stages, volumes, mainUnits, phases, perPhase,
+      parsed: stages.length > 0,
+      hasVolumes: volumes.length > 0,
+      suggestSplit: mainUnits > 40
+    };
+  }
+
+  /* 生成卷结构（一次生成全部卷） */
+  async function genVolumes(book, onDelta, signal) {
+    const P = LP.get();
+    const { mainUnits, phases, perPhase } = sizePlan(book);
+    const stages = (book.stages && book.stages.length) ? book.stages : parseStages(bookDoc(book, 'book'));
+    if (!stages.length) throw new Error('总纲里没有解析出【三级推进】，先生成总纲');
+
+    const stageText = stages.map(st =>
+      `第${st.num}级｜${st.name}\n  目标：${st.goal}\n  矛盾：${st.conflict}\n  覆盖：第${st.fromVol}-${st.toVol}卷`
+    ).join('\n');
+
+    const user = [
+      '请根据全书总纲和三级推进，生成「卷结构」。',
+      '',
+      '全书总纲：',
+      bookDoc(book, 'book'),
+      '',
+      '三级推进（已确定，不许改）：',
+      stageText,
+      '',
+      `规模：全书主线共 ${mainUnits} 格，分 ${phases} 卷，每卷约 ${perPhase} 格。`,
+      '',
+      '要求：严格按下面格式输出全部 ' + phases + ' 卷，一卷一行，不要解释：',
+      '卷N｜卷名｜所属级｜起止格｜本卷目标｜本卷矛盾',
+      '',
+      '格式说明：',
+      '- 卷N：卷号，从 1 开始连续',
+      '- 卷名：4-8 字，要有辨识度',
+      '- 所属级：第1级/第2级/第3级（必须落在该级覆盖的卷号范围内）',
+      '- 起止格：如"第1-17格"，必须连续覆盖第 1 格到第 ' + mainUnits + ' 格，不许有空隙或重叠',
+      '- 本卷目标：这一卷主角要达成什么（一句话）',
+      '- 本卷矛盾：这一卷的核心阻力（一句话）',
+      '',
+      '硬性要求：',
+      '1. 每卷的格数尽量均衡（约 ' + perPhase + ' 格），可按剧情需要浮动，但总和必须等于 ' + mainUnits + ' 格',
+      '2. 卷的归属级必须符合三级推进的卷号范围',
+      '3. 每卷目标必须是具体的动作结果，不许写"继续发展"这类空话'
+    ].join('\n');
+
+    return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
+  }
+
+  /* 解析生成的卷结构 */
+  function parseVolumes(text, stages) {
+    const t = String(text || '');
     const vols = [];
-    m[1].split('\n').forEach(line => {
+    t.split('\n').forEach(line => {
       const s = line.trim().replace(/^[-·*]\s*/, '');
       if (!s || s.indexOf('｜') < 0) return;
       const f = s.split(/[｜|]/).map(x => x.trim());
-      /* 卷号｜卷名｜起止单元｜矛盾 */
+      if (f.length < 6) return;
       const numM = String(f[0]).match(/\d+/);
-      const rangeM = String(f[2] || '').match(/(\d+)\s*[-—~到至]\s*(\d+)/);
+      const rangeM = String(f[3] || '').match(/(\d+)\s*[-—~到至]\s*(\d+)/);
+      const stageM = String(f[2] || '').match(/第?\s*([一二三1-3])\s*级/);
       if (!numM || !rangeM) return;
+      const numMap = { '一': 1, '二': 2, '三': 3, '1': 1, '2': 2, '3': 3 };
       vols.push({
+        id: 'v' + numM[0],
         vol: parseInt(numM[0], 10),
         name: f[1] || ('卷' + numM[0]),
-        from: parseInt(rangeM[1], 10),
-        to: parseInt(rangeM[2], 10),
-        conflict: f[3] || ''
+        stageId: stageM ? ('s' + numMap[stageM[1]]) : '',
+        stageNum: stageM ? numMap[stageM[1]] : 0,
+        fromStep: parseInt(rangeM[1], 10),
+        toStep: parseInt(rangeM[2], 10),
+        goal: f[4] || '',
+        conflict: f[5] || ''
       });
     });
     vols.sort((a, b) => a.vol - b.vol);
     return vols;
-  }
-
-  /* 把总纲的形态判断出来（供 UI 用） */
-  function volumePlan(book) {
-    const bookText = bookDoc(book, 'book');
-    const vols = parseVolumes(bookText);
-    const mainUnits = Math.max(8, Math.round((book.target || 380000) / 11000));
-    return {
-      volumes: vols,
-      mainUnits,
-      suggestSplit: mainUnits > 40,   /* 超过 40 格建议分卷 */
-      parsed: vols.length > 0
-    };
   }
 
   /* 生成某一卷的推进表格子（fromStep~toStep） */
@@ -290,13 +378,17 @@
     const mainUnits = Math.max(8, Math.round(target / 11000));
     const sideUnits = Math.max(4, Math.round(mainUnits * 0.25));
 
-    /* 范围说明 */
+    /* 范围说明：从 book.volumes 取 */
     let rangeBlock = '';
-    const vols = parseVolumes(bookDoc(book, 'book'));
-    const vol = vols.find(v => fromStep >= v.from && fromStep <= v.to);
+    const vols = book.volumes || [];
+    const vol = vols.find(v => fromStep >= v.fromStep && fromStep <= v.toStep);
     if (vol) {
+      const stage = (book.stages || []).find(st => st.id === vol.stageId);
       rangeBlock = `【本次生成的是「卷${vol.vol}　${vol.name}」】\n`
-        + `本卷覆盖第 ${vol.from}-${vol.to} 格，核心矛盾：${vol.conflict}\n`
+        + `本卷覆盖第 ${vol.fromStep}-${vol.toStep} 格\n`
+        + `本卷目标：${vol.goal || '（未填）'}\n`
+        + `本卷矛盾：${vol.conflict || '（未填）'}\n`
+        + (stage ? `所属级：第${stage.num}级「${stage.name}」　级目标：${stage.goal}　级矛盾：${stage.conflict}\n` : '')
         + (vol.vol > 1 ? `这是全书的一部分，不要在第 1 格起重新编号，也不要提前解决后面几卷的问题。\n` : '');
     }
     /* 带上一卷的尾格，保证衔接 */
@@ -311,10 +403,10 @@
     }
     /* 剩余格子的路标，避免打光后面的牌 */
     if (toStep < mainUnits) {
-      const remainV = vols.filter(v => v.from > toStep);
+      const remainV = vols.filter(v => v.fromStep > toStep);
       if (remainV.length) {
         rangeBlock += '\n【后面还没到的卷（不许提前解决）】\n'
-          + remainV.map(v => `卷${v.vol}　${v.name}（第${v.from}-${v.to}格）：${v.conflict}`).join('\n')
+          + remainV.map(v => `卷${v.vol}　${v.name}（第${v.fromStep}-${v.toStep}格）：${v.conflict}`).join('\n')
           + '\n';
       }
     }
@@ -1258,7 +1350,7 @@
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
-    progressAuditData, genAudit, parseVolumes, volumePlan, genSpineRange, mergeCells,
+    progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genSpineRange, mergeCells,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
     genCellFill, parseCellText, cellText,
