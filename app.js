@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v56-final';
+window.APP_VERSION = 'v57-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -13,7 +13,7 @@ window.APP_VERSION = 'v56-final';
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
     bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
-    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb'), bChapter: $('#btnChapter')
+    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb'), bChapter: $('#btnChapter'), bGrid: $('#btnGrid')
   };
 
   let cur = Books.current();
@@ -85,6 +85,7 @@ window.APP_VERSION = 'v56-final';
       if (els.bFacts) els.bFacts.hidden = true;
       if (els.bAudit) els.bAudit.hidden = true;
       if (els.bChapter) els.bChapter.hidden = true;
+      if (els.bGrid) els.bGrid.hidden = true;
       return;
     }
     els.project.textContent = cur.title;
@@ -117,6 +118,7 @@ window.APP_VERSION = 'v56-final';
     if (els.bFacts) els.bFacts.hidden = false;
     if (els.bAudit) els.bAudit.hidden = false;
     if (els.bChapter) els.bChapter.hidden = false;
+    if (els.bGrid) els.bGrid.hidden = false;
   }
 
   /* ---------- 步骤条 ---------- */
@@ -591,6 +593,17 @@ window.APP_VERSION = 'v56-final';
 
     /* 存储状态 */
     stage.appendChild(storageCard());
+
+    /* 结构变动记录 */
+    if (cur && cur.history && cur.history.length) {
+      const hc = el('div', 'card');
+      const hh = el('h3', '', '结构变动记录');
+      hh.appendChild(el('span', 'tag', '最近 ' + Math.min(20, cur.history.length) + ' 条'));
+      hc.appendChild(hh);
+      hc.appendChild(el('div', 'hint', '改档、合并、删除、同步等操作都会记在这里，方便回溯。'));
+      hc.appendChild(UNITUI.historyList(cur));
+      stage.appendChild(hc);
+    }
   }
 
   /* ---------- 存储状态卡片 ---------- */
@@ -751,6 +764,11 @@ window.APP_VERSION = 'v56-final';
     if (busy) { toast('正在生成，先等一下'); return; }
     if (!cur) return;
     view = 'audit'; render();
+  };
+  $('#btnGrid').onclick = () => {
+    if (busy) { toast('正在生成，先等一下'); return; }
+    if (!cur) return;
+    view = 'grid'; render();
   };
   $('#btnChapter').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
