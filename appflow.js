@@ -479,6 +479,16 @@
 
   /* ---- 整篇润色 ---- */
   async function polishUnit(b, u) {
+    /* 已有内容时提示：润色会改写文字 */
+    const ps = u.steps.polish;
+    const hasText = ps && ps.versions && ps.versions.length && (ps.versions[ps.sel] || {}).text;
+    const isJoined = ps && ps.versions && ps.versions[ps.sel] && ps.versions[ps.sel].note === '正文拼接';
+    if (hasText) {
+      const msg = isJoined
+        ? '这一篇现在是「正文原样拼接」的初稿。\n\n润色会让 AI 改写文字，可能把原本过渡好的地方改差。\n\n大多数情况下直接「通过」就可以。确定要润色吗？'
+        : '重新润色？\n\n当前内容会被新的一版替代（旧稿保留在「稿 N」里）。';
+      if (!confirm(msg)) return;
+    }
     const ctrl = new AbortController();
     let cancelled = false;
     ctrl.signal.addEventListener('abort', () => { cancelled = true; });
@@ -494,7 +504,7 @@
         }
       });
       const s = u.steps.polish;
-      s.versions.push({ text: out, at: Date.now() });
+      s.versions.push({ text: out, at: Date.now(), note: '润色' });
       s.sel = s.versions.length - 1;
       s.status = 'ready';
       Books.save(b);
@@ -556,11 +566,23 @@
       if (k === 'draft') {
         const written = (s.parts || []).filter(Boolean).length;
         if (!written) { A.toast('先写正文'); return; }
-        s.versions = [{ text: LEngine.joinDraft(u), at: Date.now() }];
+        /* 机械拼接各节成整篇，作为润色环节的初稿（不调用 AI） */
+        const joined = LEngine.joinDraft(u);
+        const ps = u.steps.polish;
+        if (!ps || !ps.versions || !ps.versions.length) {
+          u.steps.polish.versions = [{ text: joined, at: Date.now(), note: '正文拼接' }];
+          u.steps.polish.sel = 0;
+          u.steps.polish.status = 'idle';   /* 等用户决定要不要润色 */
+        } else {
+          /* 已有润色稿：不动，只更新正文快照 */
+          ps.status = ps.status || 'idle';
+        }
+        s.versions = [{ text: joined, at: Date.now() }];
         s.sel = 0;
         s.status = 'done';
         A.setCurUnitStep('polish');
         Books.save(b); A.render();
+        A.toast('已拼接成整篇，可以直接通过或润色');
         return;
       }
       if (!A.docOf(s)) { A.toast('还没有内容'); return; }
