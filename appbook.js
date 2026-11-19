@@ -395,7 +395,10 @@
           const a = tmp[i];
           pe.querySelector('.ph-from').value = a ? a.fromStep : '';
           pe.querySelector('.ph-to').value = a ? a.toStep : '';
-          pe.querySelector('.ph-name').value = a ? a.name : '';
+          /* 用户已改过阶段名就保留，只重分格号 */
+          const curName = pe.querySelector('.ph-name').value.trim();
+          const isDefault = !curName || /^阶段\d+$/.test(curName) || ['被逼入局', '暗中蓄力', '正面摊牌', '收束余波'].indexOf(curName) >= 0;
+          if (isDefault && a) pe.querySelector('.ph-name').value = a.name;
         });
       };
       root.querySelector('#saveV').onclick = () => {
@@ -403,30 +406,35 @@
         const nt = parseInt(root.querySelector('#vTo').value, 10) || v.toStep;
         const diff = (nt - nf) - (v.toStep - v.fromStep);
 
+        /* 先算出范围是否变了（必须在赋值前比较） */
+        const newFrom = Math.min(nf, nt), newTo = Math.max(nf, nt);
+        const rangeChanged = (newFrom !== v.fromStep || newTo !== v.toStep);
+
         v.name = root.querySelector('#vName').value.trim() || v.name;
         v.goal = root.querySelector('#vGoal').value.trim();
         v.conflict = root.querySelector('#vConflict').value.trim();
-        v.fromStep = Math.min(nf, nt);
-        v.toStep = Math.max(nf, nt);
 
-        /* 收集阶段 */
+        /* 收集阶段（用户刚输入的新值） */
         const phEls = root.querySelectorAll('.ph-edit');
         const newPhs = [];
         phEls.forEach((pe, i) => {
+          const fv = parseInt(pe.querySelector('.ph-from').value, 10);
+          const tv = parseInt(pe.querySelector('.ph-to').value, 10);
           newPhs.push({
             no: i + 1,
-            fromStep: parseInt(pe.querySelector('.ph-from').value, 10) || 0,
-            toStep: parseInt(pe.querySelector('.ph-to').value, 10) || 0,
+            fromStep: Number.isFinite(fv) ? fv : 0,
+            toStep: Number.isFinite(tv) ? tv : 0,
             name: pe.querySelector('.ph-name').value.trim() || ('阶段' + (i + 1)),
             note: pe.querySelector('.ph-note').value.trim()
           });
         });
-        const rangeChanged = (nf !== v.fromStep || nt !== v.toStep);
-        if (rangeChanged && (!newPhs.length || newPhs.every(x => x.fromStep < Math.min(nf, nt) || x.toStep > Math.max(nf, nt)))) {
-          v.phases = LEngine.autoPhases(v);
-        } else {
-          v.phases = newPhs.length ? LEngine.normalizePhases(v) : LEngine.autoPhases(v);
-        }
+
+        v.fromStep = newFrom;
+        v.toStep = newTo;
+
+        v.phases = newPhs.length
+          ? LEngine.normalizePhases(newFrom, newTo, newPhs)
+          : LEngine.autoPhases(v);
 
         /* 后续卷自动顺延 */
         if (diff !== 0) {
