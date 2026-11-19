@@ -30,8 +30,11 @@
   /* ================= 分节正文 ================= */
   function renderDraft(b, u) {
     const d = u.steps.draft;
-    /* 兼容旧数据：把未入册的当前内容补录成版本 */
-    (d.parts || []).forEach(p => { if (p) PARTVER.reconcile(p); });
+    /* 兼容旧数据：每个单元只补录一次（避免手动编辑被误当新版本） */
+    if (!d._reconciled) {
+      (d.parts || []).forEach(p => { if (p) PARTVER.reconcile(p, true); });
+      d._reconciled = true;
+    }
     const plan = LEngine.outlinePlan(LEngine.unitDoc(u, 'outline'));
     const total = plan.length || LEngine.tierOf(u).parts;
     const idx = Math.min(d.partIdx || 0, Math.max(0, total - 1));
@@ -144,7 +147,7 @@
 
   /* 某一节的版本切换条 */
   function partVersionBar(b, u, idx, part) {
-    PARTVER.reconcile(part);
+    PARTVER.ensure(part);
     const n = PARTVER.count(part);
     const wrap = el('div', 'pv-bar');
 
@@ -260,8 +263,29 @@
     ta.focus();
     const done = el('button', 'primary-btn', '保存');
     done.onclick = () => {
-      d.parts[idx].body = ta.value;
-      d.parts[idx].issues = LCHECK.checkText(b, u, ta.value);
+      const p = d.parts[idx];
+      const txt = ta.value;
+      p.body = txt;
+      /* 手动编辑是"修"当前这一版，不产生新稿 */
+      PARTVER.ensure(p);
+      if (p.sel >= 0 && p.versions[p.sel]) {
+        /* 当前有明确指向：就地更新那一版 */
+        p.versions[p.sel].text = txt;
+        p.versions[p.sel].at = Date.now();
+      } else if (p.versions.length === 0) {
+        /* 一个版本都没有：建一条 */
+        p.versions.push({ text: txt, at: Date.now(), note: '手动编辑' });
+        p.sel = 0;
+      } else {
+        /* sel 无效但有历史：按内容找，找不到就建一条新的 */
+        const idx = p.versions.findIndex(v => v.text === txt);
+        if (idx >= 0) p.sel = idx;
+        else {
+          p.versions.push({ text: txt, at: Date.now(), note: '手动编辑' });
+          p.sel = p.versions.length - 1;
+        }
+      }
+      p.issues = LCHECK.checkText(b, u, txt);
       A.persist(); A.render();
     };
     ta.after(done);
