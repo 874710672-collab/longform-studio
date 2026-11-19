@@ -440,14 +440,27 @@
     return out;
   }
 
-  /* 规整阶段：补空隙、消重叠、强制覆盖本卷 */
-  function normalizePhases(v) {
-    const from = v.fromStep, to = v.toStep;
-    let arr = (v.phases || [])
+  /* 规整阶段：补空隙、消重叠、强制覆盖本卷
+     用法：normalizePhases({fromStep,toStep,phases}) 或 normalizePhases(from, to, phases) */
+  function normalizePhases(a, b, c) {
+    let from, to, list;
+    if (Array.isArray(a)) {
+      /* normalizePhases(phases, fromStep, toStep) */
+      list = a; from = b; to = c;
+    } else if (typeof a === 'number') {
+      /* normalizePhases(fromStep, toStep, phases) */
+      from = a; to = b; list = c;
+    } else {
+      /* normalizePhases(vol) */
+      from = a && a.fromStep; to = a && a.toStep; list = (a && a.phases) || [];
+    }
+    from = Number(from); to = Number(to);
+    list = Array.isArray(list) ? list : [];
+    let arr = (list || [])
       .filter(p => p.fromStep && p.toStep)
       .map(p => Object.assign({}, p))
       .sort((a, b) => a.fromStep - b.fromStep);
-    if (!arr.length) return autoPhases(v);
+    if (!arr.length || !Number.isFinite(from) || !Number.isFinite(to)) return autoPhases({ fromStep: from, toStep: to });
 
     arr[0].fromStep = from;
     arr[arr.length - 1].toStep = to;
@@ -458,7 +471,7 @@
     }
     arr = arr.filter(p => p.toStep >= p.fromStep);
     arr.forEach((p, i) => { p.no = i + 1; });
-    return arr.length ? arr : autoPhases(v);
+    return arr.length ? arr : autoPhases({ fromStep: from, toStep: to });
   }
 
   /* 生成某一卷的推进表格子（fromStep~toStep） */
