@@ -20,6 +20,20 @@
 .kv:last-child{border-bottom:none}
 .kv b{font-weight:600;flex:0 0 auto;text-align:right}
 
+/* 长文本变体：名字窄列 + 内容可换行（用于交棒单状态变化等） */
+.kv.long{align-items:flex-start;gap:8px}
+.kv.long span:first-child{
+  flex:0 0 auto;min-width:3.5em;max-width:5em;
+  color:var(--txt);font-size:13px;line-height:1.75;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.kv.long b{
+  flex:1 1 auto;min-width:0;
+  text-align:left;font-weight:400;
+  color:var(--sub);font-size:12px;line-height:1.75;
+  word-break:break-word;overflow-wrap:anywhere;
+}
+
 /* ---------- 简报 ---------- */
 .brief-title{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
 .title-in{
