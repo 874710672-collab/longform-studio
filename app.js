@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v53-final';
+window.APP_VERSION = 'v54-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -216,7 +216,7 @@ window.APP_VERSION = 'v53-final';
     const bz = !!busy;
 
     els.bGen.hidden = bz || has;
-    els.bRevise.hidden = bz || !has;
+    els.bRevise.hidden = bz || !has || (isUnit && k === 'polish');
     els.bRegen.hidden = bz || !has;
     els.bApprove.hidden = bz || !has;
 
@@ -233,9 +233,17 @@ window.APP_VERSION = 'v53-final';
     els.bRevise.title = fb
       ? '带原稿 + 意见：只改你提到的地方，其它段落保持不动'
       : '先在右边写审核意见';
-    els.bRegen.textContent = fb
-      ? (isDraft ? '↻ 重写本节' : '↻ 按意见重写')
-      : (isDraft ? '↻ 重写本节' : '↻ 重新生成');
+    if (isUnit && k === 'polish') {
+      els.bRegen.textContent = '↻ 重新润色';
+      els.bRegen.title = '让 AI 分段润色。可能改写原本没问题的文字';
+    } else {
+      els.bRegen.textContent = fb
+        ? (isDraft ? '↻ 重写本节' : '↻ 按意见重写')
+        : (isDraft ? '↻ 重写本节' : '↻ 重新生成');
+      els.bRegen.title = fb
+        ? '带意见但不带原稿：从头再写一版，可能和你原来的不一样'
+        : '不带任何东西，重新生成一版';
+    }
     els.bRegen.title = fb
       ? '带意见但不带原稿：从头再写一版，可能和你原来的不一样'
       : '不带任何东西，重新生成一版';
@@ -244,9 +252,13 @@ window.APP_VERSION = 'v53-final';
       const order = LT.UNIT_STEPS;
       const i = order.indexOf(k);
       const last = i === order.length - 1;
-      els.bApprove.textContent = last
-        ? (k === 'relay' ? '完成 · 这篇定稿了' : '完成 · 本篇定稿')
-        : '通过 · 进入' + LT.UNIT_STEP_NAME[order[i + 1]];
+      if (k === 'polish') {
+        els.bApprove.textContent = '通过 · 不用润色，进入交棒单';
+      } else {
+        els.bApprove.textContent = last
+          ? (k === 'relay' ? '完成 · 这篇定稿了' : '完成 · 本篇定稿')
+          : '通过 · 进入' + LT.UNIT_STEP_NAME[order[i + 1]];
+      }
     } else {
       const i = LT.BOOK_STEPS.indexOf(k);
       els.bApprove.textContent = i === LT.BOOK_STEPS.length - 1 ? '通过 · 去建单元列表' : '通过 · 进入' + LT.BOOK_STEP_NAME[LT.BOOK_STEPS[i + 1]];
