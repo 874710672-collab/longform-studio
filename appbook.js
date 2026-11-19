@@ -70,6 +70,9 @@
     /* 简报 */
     stage.appendChild(briefCard(b));
 
+    /* 分卷生成面板 */
+    stage.appendChild(volumePanel(b));
+
     /* 稿件切换条：每稿有独立的格子与单元 */
     stage.appendChild(draftTabs(b, s));
 
@@ -126,6 +129,135 @@
 
     /* 审核意见：卡片视图里也要能写，否则「按意见改」用不了 */
     stage.appendChild(BOOKUI.feedbackCard(s, 'spine'));
+  }
+
+  /* 分卷生成面板 */
+  function volumePanel(b) {
+    const c = el('div', 'card');
+    const plan = LEngine.volumePlan(b);
+    const h = el('h3', '', '分卷生成');
+    h.appendChild(el('span', 'tag', plan.parsed ? plan.volumes.length + ' 卷' : '未分卷'));
+    c.appendChild(h);
+
+    /* 未解析出分卷 */
+    if (!plan.parsed) {
+      c.appendChild(el('div', 'hint',
+        '总纲里没有解析出「【全书分卷】」。可以：\n'
+        + '· 回「全书总纲」重新生成（会自动带分卷）\n'
+        + '· 或者直接用下面的「全文一次生成」'));
+      const btn = el('button', 'primary-btn wide', '全文一次生成推进表');
+      btn.onclick = () => genWhole(b);
+      c.appendChild(btn);
+      return c;
+    }
+
+    /* 规模提示 */
+    if (plan.suggestSplit) {
+      c.appendChild(el('div', 'cap-tip thin',
+        '本书约 ' + plan.mainUnits + ' 个主线单元，建议分卷生成——一次生成这么多格容易被截断、后段质量下滑。'));
+    }
+
+    /* 卷列表 */
+    const list = el('div', 'vol-list');
+    const existing = new Set((b.spine || []).map(x => x.step));
+    plan.volumes.forEach(v => {
+      let have = 0;
+      for (let i = v.from; i <= v.to; i++) if (existing.has(i)) have++;
+      const total = v.to - v.from + 1;
+      const full = have >= total;
+
+      const row = el('div', 'vol-row' + (full ? ' done' : ''));
+      const info = el('div', 'vol-info');
+      const t = el('div', 'vol-title');
+      t.appendChild(el('b', '', '卷' + v.vol + '　' + v.name));
+      if (full) t.appendChild(el('span', 'vol-badge ok', '已完成'));
+      else if (have > 0) t.appendChild(el('span', 'vol-badge part', have + '/' + total));
+      info.appendChild(t);
+      info.appendChild(el('div', 'vol-sub', '第' + v.from + '-' + v.to + '格 · ' + (v.conflict || '')));
+      row.appendChild(info);
+
+      const btn = el('button', 'mini' + (full ? '' : ' on'), full ? '重新生成' : '生成这一卷');
+      btn.onclick = () => genVolume(b, v, full);
+      row.appendChild(btn);
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+
+    /* 全文一次 */
+    const acts = el('div', 'list-acts');
+    const whole = el('button', 'mini', '全文一次生成');
+    whole.onclick = () => genWhole(b);
+    acts.appendChild(whole);
+    c.appendChild(acts);
+
+    return c;
+  }
+
+  /* 生成一卷 */
+  async function genVolume(b, v, isRedo) {
+    if (A.busy) return;
+    if (isRedo && !confirm('「卷' + v.vol + '　' + v.name + '」已经生成过。\n\n重新生成会覆盖这一卷的格子内容（已有的单元保留，只更新格子文本）。\n\n继续？')) return;
+
+    const ctrl = new AbortController();
+    A.setBusy({ ctrl, label: '正在生成卷' + v.vol + '（' + (v.to - v.from + 1) + '格）', text: '' });
+    A.render();
+    A.setStream('');
+    try {
+      const out = await LEngine.genSpineRange(b, v.from, v.to, (d, full) => {
+        A.setBusy(Object.assign({}, A.busy, { text: full }));
+        A.setStream(full); A.updateDock();
+      }, ctrl.signal);
+      if (!out || !String(out).trim()) throw new Error('返回为空，可能被截断了');
+
+      const cells = LEngine.parseSpine(out);
+      if (!cells.length) throw new Error('没有解析出格子，检查返回格式');
+      const inRange = cells.filter(c => c.step >= v.from && c.step <= v.to);
+      if (!inRange.length) throw new Error('生成的格号不在 ' + v.from + '-' + v.to + ' 范围内');
+
+      const rep = LEngine.mergeCells(b, inRange);
+      const sync = LEngine.syncUnitsWithSpine(b);
+      Books.pushHistory(b, '分卷生成', '卷' + v.vol + '：新增 ' + rep.added + ' · 更新 ' + rep.updated);
+      A.persist();
+      A.setBusy(null); A.render();
+      A.toast('卷' + v.vol + '完成：' + rep.added + ' 新格，' + rep.updated + ' 更新' + (sync.added ? '，新建 ' + sync.added + ' 单元' : ''));
+    } catch (e) {
+      A.setBusy(null); A.endStream(); A.render();
+      if (e.name !== 'AbortError') alert('生成失败：' + e.message);
+    }
+  }
+
+  /* 全文一次生成 */
+  async function genWhole(b) {
+    if (A.busy) return;
+    const plan = LEngine.volumePlan(b);
+    if (plan.mainUnits > 60) {
+      if (!confirm('本书约 ' + plan.mainUnits + ' 格，一次生成很可能被截断。\n\n建议改用分卷生成。确定还要一次生成吗？')) return;
+    }
+    const ctrl = new AbortController();
+    A.setBusy({ ctrl, label: '正在生成完整推进表', text: '' });
+    A.render();
+    A.setStream('');
+    try {
+      const out = await LEngine.genBookStep(b, 'spine', (d, full) => {
+        A.setBusy(Object.assign({}, A.busy, { text: full }));
+        A.setStream(full); A.updateDock();
+      }, ctrl.signal);
+      if (!out || !String(out).trim()) throw new Error('返回为空');
+      const cells = LEngine.parseSpine(out);
+      if (!cells.length) throw new Error('没有解析出格子');
+      const rep = LEngine.mergeCells(b, cells);
+      LEngine.syncUnitsWithSpine(b);
+      b.steps.spine.versions.push({ text: String(out).trim(), at: Date.now() });
+      b.steps.spine.sel = b.steps.spine.versions.length - 1;
+      b.steps.spine.status = 'ready';
+      Books.pushHistory(b, '全文生成推进表', '新增 ' + rep.added + ' · 更新 ' + rep.updated);
+      A.persist();
+      A.setBusy(null); A.render();
+      A.toast('完成：' + cells.length + ' 格');
+    } catch (e) {
+      A.setBusy(null); A.endStream(); A.render();
+      if (e.name !== 'AbortError') alert('生成失败：' + e.message);
+    }
   }
 
   /* 稿件切换条 */
