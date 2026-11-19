@@ -449,7 +449,7 @@
         Object.assign(old, nc, { id: old.id });
         updated++;
       } else {
-        map.set(nc.step, Object.assign({ id: GRID.newId(0) }, nc));
+        map.set(nc.step, Object.assign({ id: GRID.newId(0), order: nc.step }, nc, { order: nc.step }));
         added++;
       }
     });
@@ -843,6 +843,7 @@
       const beatM = (b.match(/建议\s*beat\s*数\s*[：:]\s*(\d+)/i) || [])[1];
       cells.push({
         step: +head[1],
+        order: +head[1],
         title: head[2].trim(),
         promote: grab('推进了什么'),
         change: grab('谁因此改变'),
