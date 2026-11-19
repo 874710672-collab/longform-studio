@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v54-final';
+window.APP_VERSION = 'v55-final';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -216,7 +216,7 @@ window.APP_VERSION = 'v54-final';
     const bz = !!busy;
 
     els.bGen.hidden = bz || has;
-    els.bRevise.hidden = bz || !has || (isUnit && k === 'polish');
+    els.bRevise.hidden = bz || !has;
     els.bRegen.hidden = bz || !has;
     els.bApprove.hidden = bz || !has;
 
@@ -234,8 +234,10 @@ window.APP_VERSION = 'v54-final';
       ? '带原稿 + 意见：只改你提到的地方，其它段落保持不动'
       : '先在右边写审核意见';
     if (isUnit && k === 'polish') {
+      els.bRevise.textContent = '✎ 按意见改';
+      els.bRevise.title = '带原稿 + 意见，只改你提到的地方（长稿会自动分段）';
       els.bRegen.textContent = '↻ 重新润色';
-      els.bRegen.title = '让 AI 分段润色。可能改写原本没问题的文字';
+      els.bRegen.title = '让 AI 分段全局润色。会改写文字，可能把没问题的改差';
     } else {
       els.bRegen.textContent = fb
         ? (isDraft ? '↻ 重写本节' : '↻ 按意见重写')
@@ -244,9 +246,6 @@ window.APP_VERSION = 'v54-final';
         ? '带意见但不带原稿：从头再写一版，可能和你原来的不一样'
         : '不带任何东西，重新生成一版';
     }
-    els.bRegen.title = fb
-      ? '带意见但不带原稿：从头再写一版，可能和你原来的不一样'
-      : '不带任何东西，重新生成一版';
 
     if (isUnit) {
       const order = LT.UNIT_STEPS;
