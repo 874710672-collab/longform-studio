@@ -883,12 +883,16 @@ body.dock-hidden #stage,
 
 /* ---------- 分卷面板 ---------- */
 .vol-list{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+/* 有阶段卡片时改为上下布局：头行(名称+按钮) / 阶段区 */
 .vol-row{
-  display:flex;align-items:center;gap:10px;
+  display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px;
   padding:9px 11px;border-radius:10px;
   background:var(--panel2);border:1px solid var(--line);
   border-left:2px solid var(--accent);
 }
+.vol-row .vol-info{flex:1 1 auto;min-width:0}
+.vol-row .vol-ops{flex:0 0 auto;margin-left:auto}
+.vol-phases{flex:1 0 100%;width:100%}
 .vol-row.done{border-left-color:var(--ok);background:rgba(90,209,155,.05)}
 .vol-info{flex:1;min-width:0}
 .vol-title{display:flex;align-items:center;gap:7px;margin-bottom:3px}
@@ -931,16 +935,25 @@ body.dock-hidden #stage,
 .vol-ops{display:flex;gap:5px;flex:0 0 auto}
 
 /* 卷内三阶段 */
-.vol-phases{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.vol-phase{font-size:11px;line-height:1.5;padding:2px 6px;border-radius:6px;
-  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
-  color:var(--fg2,#9aa4b2);white-space:nowrap}
-.vol-phase:nth-child(1){border-left:2px solid #f0a33a}
-.vol-phase:nth-child(2){border-left:2px solid #5aa9e6}
-.vol-phase:nth-child(3){border-left:2px solid #7ddc8a}
-.vol-phase:nth-child(4){border-left:2px solid #b98ee0}
+.vol-phases{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.vol-phase-card{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.045);
+  border-left:2px solid #5aa9e6}
+.vol-phase-card:nth-child(1){border-left-color:#f0a33a}
+.vol-phase-card:nth-child(2){border-left-color:#5aa9e6}
+.vol-phase-card:nth-child(3){border-left-color:#7ddc8a}
+.vol-phase-card:nth-child(4){border-left-color:#b98ee0}
+.vpc-head{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap}
+.vpc-no{font-size:11px;color:#9aa4b2;background:rgba(255,255,255,.08);
+  padding:1px 5px;border-radius:4px}
+.vpc-name{font-size:13px;font-weight:600}
+.vpc-range{font-size:11px;color:#9aa4b2;margin-left:auto}
+.vpc-line{display:flex;gap:6px;margin-top:3px;font-size:12px;line-height:1.45}
+.vpc-tag{flex:0 0 auto;color:#9aa4b2;opacity:.85}
+.vpc-txt{flex:1;color:#d6dae0;word-break:break-word}
 .ph-edit{margin:8px 0;padding:8px;border-radius:8px;background:rgba(255,255,255,.04)}
 .ph-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
 .ph-no{font-size:12px;color:var(--fg2,#9aa4b2);white-space:nowrap}
 .ph-edit input{padding:4px 6px;font-size:13px}
-.ph-edit .ph-note{width:100%;margin-top:2px}
+.ph-row2{display:flex;align-items:center;gap:6px;margin-top:4px}
+.ph-row2 .ph-tag{font-size:11px;color:#9aa4b2;flex:0 0 28px}
+.ph-row2 input{flex:1;padding:3px 6px;font-size:12px}
