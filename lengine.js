@@ -247,9 +247,13 @@
     const target = book.target;
     const mainUnits = Math.max(8, Math.round(target / 11000));
     if (key === 'book') {
+      /* 阶段数按体量算：每 8-12 个单元一段，30万→3段，60万→5-6段 */
+      const phases = Math.max(3, Math.min(8, Math.round(mainUnits / 9)));
+      const perPhase = Math.max(3, Math.round(mainUnits / phases));
       const user = LP.fill(P.book, {
         brief: briefText(book.brief), target,
         units: mainUnits,
+        mainUnits, phases, perPhase,
         feedback: feedbackOf(book.steps.book)
       });
       return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
