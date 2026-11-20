@@ -638,14 +638,19 @@
   .ch-split{
     display:grid;
     grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
-    align-items:start;
+    align-items:stretch;
     gap:16px;
   }
   .ch-left{position:sticky;top:0}
 }
 
-.ch-left{display:flex;flex-direction:column;gap:10px;min-width:0}
+.ch-left{
+  display:flex;flex-direction:column;gap:10px;min-width:0;
+  /* 占满可用高度，编辑卡片才能把正文区拉到底 */
+  min-height:calc(100dvh - 190px);
+}
 .ch-right{min-width:0}
+.ch-left .ch-edit{flex:1 1 auto}
 
 /* 左头部 */
 /* 左侧头部：目录 / 新建 / 导出 挤一行 */
@@ -672,6 +677,7 @@
 .ch-edit{
   background:var(--panel);border:1px solid var(--line);border-radius:14px;
   padding:10px;display:flex;flex-direction:column;gap:8px;min-height:300px;
+  box-sizing:border-box;
 }
 .ce-title-row{display:flex}
 .ce-title{
@@ -688,7 +694,7 @@
   border:1px dashed rgba(185,166,255,.28);
 }
 .ce-body{
-  flex:1;min-height:52vh;
+  flex:1 1 auto;min-height:260px;width:100%;box-sizing:border-box;
   background:var(--panel2);border:1px solid var(--line);border-radius:10px;
   padding:12px;font-size:14px;line-height:1.9;color:var(--txt);
   resize:vertical;font-family:inherit;
