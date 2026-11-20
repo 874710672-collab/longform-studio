@@ -984,3 +984,13 @@ body.dock-hidden #stage,
   .vol-row{grid-template-columns:auto minmax(0,1fr) auto;gap:6px}
   .vol-row .vol-ops{gap:4px}
 }
+
+/* 关键道具：篇号标签 */
+.it-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.it-tag{display:inline-flex;align-items:center;gap:5px;font-size:12px;
+  padding:3px 8px;border-radius:6px;background:rgba(122,180,255,.14);
+  border:1px solid rgba(122,180,255,.28);color:#bcd9ff}
+.it-tag i{font-style:normal;cursor:pointer;opacity:.6;font-size:13px;line-height:1}
+.it-tag i:hover{opacity:1;color:#ff9c9c}
+.it-add{display:flex;gap:6px;align-items:center;margin-top:4px}
+.it-add input{width:80px;padding:4px 8px;font-size:13px}
