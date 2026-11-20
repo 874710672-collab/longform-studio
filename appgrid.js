@@ -94,6 +94,9 @@
     const hasContent = u && LEngine.unitHasContent(u);
 
     const card = el('div', 'grid-card' + (u ? '' : ' no-unit'));
+    /* 供「⌖ 定位」用：第几格 + 是否已完成 */
+    card.dataset.step = String(c.step);
+    if (u && LEngine.unitHasContent(u)) card.dataset.done = '1';
     const head = el('div', 'gc-head');
     head.appendChild(el('span', 'gc-n', '第' + c.step + '格'));
     const title = el('div', 'gc-title', c.title || '（未命名）');
