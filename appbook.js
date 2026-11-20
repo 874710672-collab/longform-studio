@@ -319,14 +319,15 @@
     };
     btn.onclick = doScroll;
 
+    /* 按钮常驻：只在目标已居中时略微降低存在感，绝不消失 */
     const st = document.getElementById('stage');
     const checkVisible = () => {
       const card = st && st.querySelector('.grid-card[data-step="' + target + '"]');
       if (!card) return;
       const r = card.getBoundingClientRect();
       const sr = st.getBoundingClientRect();
-      const visible = r.bottom > sr.top + 40 && r.top < sr.bottom - 40;
-      wrap.classList.toggle('hide', visible);
+      const centered = Math.abs((r.top + r.height / 2) - (sr.top + sr.height / 2)) < sr.height * 0.25;
+      wrap.classList.toggle('dim', centered);
     };
     if (st) {
       st.addEventListener('scroll', checkVisible, { passive: true });
