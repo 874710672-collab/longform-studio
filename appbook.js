@@ -233,7 +233,10 @@
 
     /* 自动定位 + 浮动定位按钮 */
     spineAutoScroll(b);
-    stage.appendChild(spineGotoFab(b));
+    /* 注意：按钮必须挂到 body —— stage 是 overflow:auto 的滚动容器，
+       fixed 元素挂在里面会跟着内容一起滚动，看上去就像"没有按钮" */
+    const fab = spineGotoFab(b);
+    if (fab && fab.nodeType === 1) document.body.appendChild(fab);
   }
 
   /* ---------- 推进表定位 ---------- */
@@ -290,6 +293,7 @@
 
   function spineGotoFab(b) {
     const target = spineTargetStep(b);
+    /* 没有任何格子时不显示（此时页面本来也没有可定位的东西） */
     if (target < 0) return document.createDocumentFragment();
 
     const vol = spineVolOf(b, target);
@@ -298,6 +302,7 @@
     const done = u && LEngine.unitHasContent(u);
 
     const wrap = el('div', 'fab-goto');
+    wrap.dataset.spineGoto = '1';
     const label = el('span', 'fg-label');
     let txt = '第 ' + target + ' 格';
     if (vol) txt = '卷' + vol.vol + ' · ' + txt;
