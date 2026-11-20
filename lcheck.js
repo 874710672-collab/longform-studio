@@ -121,6 +121,53 @@
       }
     });
 
+    /* 关键道具检查 */
+    const idx = u.idx + 1;
+    ((book.facts && book.facts.items) || []).forEach(it => {
+      if (!it.name) return;
+      const used = (it.useUnits || []).indexOf(idx) >= 0;
+      const appears = text.indexOf(it.name) >= 0;
+
+      /* 1. 计划本篇使用，但正文没出现 */
+      if (used && !appears) {
+        issues.push({ level: 'warn', msg: `道具「${it.name}」计划在第 ${idx} 篇使用，但正文里没找到` });
+      }
+
+      /* 2. 已消耗/已损毁，却还在被使用 */
+      if ((it.state === '已消耗' || it.state === '已损毁') && appears) {
+        issues.push({
+          level: 'error',
+          msg: `道具「${it.name}」状态是「${it.state}」，本篇又出现了——已${it.state === '已消耗' ? '耗尽' : '损毁'}的东西不能再被使用`
+        });
+      }
+
+      /* 3. 已当掉/已送出，却写成在手上 */
+      if ((it.state === '已当掉' || it.state === '已送出') && appears) {
+        if (/掏出|拿出|摸出|手里|握着|递给他|递给/.test(text)) {
+          issues.push({
+            level: 'warn',
+            msg: `道具「${it.name}」状态是「${it.state}」，但正文里像是拿在手上——确认是否已赎回/要回来`
+          });
+        }
+      }
+    });
+
+    /* 4. 道具在别处，但它的持有者不在场 */
+    const unitCast = (u.cast || []);
+    ((book.facts && book.facts.items) || []).forEach(it => {
+      if (!it.holder || !it.name) return;
+      if (text.indexOf(it.name) < 0) return;
+      const owner = it.holder.replace(/[（(].*?[）)]/g, '').trim();
+      if (!owner || /当铺|库房|失传|无主/.test(it.holder)) return;
+      const inCast = unitCast.some(n => n && (n.indexOf(owner) >= 0 || owner.indexOf(n) >= 0));
+      if (unitCast.length && !inCast && text.indexOf(owner) < 0) {
+        issues.push({
+          level: 'warn',
+          msg: `道具「${it.name}」在「${it.holder}」手里，但此人不在本单元出场名单里`
+        });
+      }
+    });
+
     return issues;
   }
 
