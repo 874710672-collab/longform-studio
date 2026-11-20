@@ -202,8 +202,8 @@
       if (!row) return;
       const rect = row.getBoundingClientRect();
       const stRect = st.getBoundingClientRect();
-      const visible = rect.bottom > stRect.top + 40 && rect.top < stRect.bottom - 40;
-      wrap.classList.toggle('hide', visible);
+      const centered = Math.abs((rect.top + rect.height / 2) - (stRect.top + stRect.height / 2)) < stRect.height * 0.25;
+      wrap.classList.toggle('dim', centered);
     };
     if (st) {
       st.addEventListener('scroll', checkVisible, { passive: true });
