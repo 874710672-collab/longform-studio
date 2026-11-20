@@ -648,7 +648,11 @@
 .ch-right{min-width:0}
 
 /* 左头部 */
-.ch-lefthead{display:flex;align-items:center;gap:8px}
+/* 左侧头部：目录 / 新建 / 导出 挤一行 */
+.ch-lefthead{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.ch-lefthead .ch-toc-btn{padding:6px 10px;font-size:12px}
+.ch-lefthead .mini{padding:5px 9px!important;font-size:11px!important;white-space:nowrap}
+.ch-lefthead .toc-ico{font-size:13px}
 .ch-toc-btn{
   display:flex;align-items:center;gap:7px;
   padding:8px 13px;border-radius:10px;
@@ -667,7 +671,7 @@
 /* 章节编辑卡片 */
 .ch-edit{
   background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:12px;display:flex;flex-direction:column;gap:10px;min-height:300px;
+  padding:10px;display:flex;flex-direction:column;gap:8px;min-height:300px;
 }
 .ce-title-row{display:flex}
 .ce-title{
@@ -684,7 +688,7 @@
   border:1px dashed rgba(185,166,255,.28);
 }
 .ce-body{
-  flex:1;min-height:340px;
+  flex:1;min-height:52vh;
   background:var(--panel2);border:1px solid var(--line);border-radius:10px;
   padding:12px;font-size:14px;line-height:1.9;color:var(--txt);
   resize:vertical;font-family:inherit;
