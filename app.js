@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v75-spine-locate';
+window.APP_VERSION = 'v76-locate-fix';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -176,9 +176,16 @@ window.APP_VERSION = 'v75-spine-locate';
 
   /* ---------- 主渲染 ---------- */
   function render() {
-    /* 记下渲染前的视图，单元列表用它判断是否「刚切入」 */
+    /* 记下渲染前的视图，单元列表/推进表用它判断是否「刚切入」 */
     window.__prevView = window.__curView || 'home';
+    window.__prevStep = window.__curStep || '';
     syncCur();
+    /* 只要视图或全书步骤变了，就允许下一次推进表自动定位 */
+    const nowKey = view + ':' + curStep;
+    if (window.__lastViewKey !== nowKey) {
+      window.__spineAutoUsed = false;
+      window.__lastViewKey = nowKey;
+    }
     /* 先隐藏悬浮意见窗，需要它的页面会在渲染中重新绑定 */
     if (window.FBFLOAT) FBFLOAT.hide();
     if (cur) Books.migrateBook(cur);
