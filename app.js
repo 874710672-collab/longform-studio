@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v79-fab-body';
+window.APP_VERSION = 'v80-fab-hide';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -50,14 +50,11 @@ window.APP_VERSION = 'v79-fab-body';
   /* 悬浮意见窗显示时，把浮动按钮挪到它左边，避免被挡住 */
   function updateFabOffset() {
     requestAnimationFrame(() => {
-      const fb = document.querySelector('.fb-float');
-      const showing = fb && !fb.hidden;
       const dock = document.getElementById('dock');
       const dockH = (dock && !dock.classList.contains('empty')) ? dock.offsetHeight : 0;
       document.querySelectorAll('.fab-goto').forEach(n => {
-        n.classList.toggle('avoid-fb', !!showing);
         /* 底栏高度各设备不同，实测后写入 CSS 变量 */
-        n.style.setProperty('--fab-bottom', (dockH + 24) + 'px');
+        n.style.setProperty('--fab-bottom', (dockH + 16) + 'px');
       });
     });
   }
