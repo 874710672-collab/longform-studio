@@ -844,10 +844,13 @@
 /* ---------- 单元列表：定位浮动条 ---------- */
 .fab-goto{
   position:fixed;
-  /* 贴左侧、纵向偏上：避开右下角的审核意见窗和底部操作栏 */
-  left:12px;right:auto;
-  top:calc(88px + env(safe-area-inset-top, 0px));
-  z-index:30;
+  /* 右下角，底栏上方；意见窗出现时由 JS 抬高避让 */
+  right:14px;left:auto;
+  bottom:calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index:70;
+  max-width:calc(100vw - 28px);
+  /* 用 JS 写入的实测偏移兜底（顶栏高度在不同设备上不一样） */
+  bottom:var(--fab-bottom, calc(76px + env(safe-area-inset-bottom, 0px)));
   display:flex;align-items:center;gap:8px;
   padding:6px 7px 6px 13px;border-radius:22px;
   background:rgba(28,27,33,.94);
@@ -1007,3 +1010,6 @@ body.dock-hidden #stage,
 .it-tag i:hover{opacity:1;color:#ff9c9c}
 .it-add{display:flex;gap:6px;align-items:center;margin-top:4px}
 .it-add input{width:80px;padding:4px 8px;font-size:13px}
+
+/* 审核意见窗出现时，定位按钮抬到它上方 */
+.fab-goto.avoid-fb{bottom:calc(320px + env(safe-area-inset-bottom, 0px))!important}
