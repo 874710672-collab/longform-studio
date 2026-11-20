@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v72-items';
+window.APP_VERSION = 'v73-chapter-space';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
