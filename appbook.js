@@ -269,8 +269,10 @@
   }
 
   function spineAutoScroll(b) {
-    if (window.__prevView === 'book' && window.__prevSpineStep === b.bookStep) return;  /* 同一页反复渲染不重置 */
-    window.__prevSpineStep = b.bookStep;
+    /* 用「进入推进表的次数」判断：每次从外部切入才自动定位，
+       页面内部重绘（改格子保存等）不重置滚动位置 */
+    if (window.__spineAutoUsed === true) return;
+    window.__spineAutoUsed = true;
 
     const target = spineTargetStep(b);
     if (target < 0) return;
