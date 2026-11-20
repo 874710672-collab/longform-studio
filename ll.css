@@ -729,8 +729,11 @@
 .cc-hint{font-size:11px;color:var(--sub);line-height:1.7}
 
 /* 目录抽屉 */
+/* 遮罩从顶栏下方开始，不压住标题栏和顶栏按钮 */
 .ch-mask{
-  position:fixed;inset:0;z-index:70;
+  position:fixed;left:0;right:0;bottom:0;
+  top:var(--ch-drawer-top, 96px);
+  z-index:70;
   background:rgba(10,9,12,.55);
   display:flex;align-items:stretch;
   backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
@@ -738,6 +741,7 @@
 .ch-drawer{
   width:min(84vw,330px);height:100%;
   background:var(--panel);border-right:1px solid var(--line);
+  border-top:1px solid var(--line);
   padding:14px;overflow:auto;
   display:flex;flex-direction:column;gap:10px;
   animation:chSlide .18s ease-out;
