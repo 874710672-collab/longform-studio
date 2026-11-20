@@ -359,9 +359,11 @@
   function applyRelayNow(b, u, text) {
     const res = LEngine.applyRelay(b, u, text);
     u.steps.relay.status = 'done';
-    Books.pushHistory(b, '应用交棒单', `第${u.idx + 1}篇：+${res.changed.plants} 伏笔 / 销账 ${res.changed.pays} / 状态 ${res.changed.states}`);
+    Books.pushHistory(b, '应用交棒单', `第${u.idx + 1}篇：+${res.changed.plants} 伏笔 / 销账 ${res.changed.pays} / 状态 ${res.changed.states} / 道具 ${res.changed.items || 0}`);
     A.persist(); A.render();
-    A.toast(`已应用：新增 ${res.changed.plants} 条伏笔，销账 ${res.changed.pays} 条，更新 ${res.changed.states} 人状态`);
+    let msg = `已应用：新增 ${res.changed.plants} 条伏笔，销账 ${res.changed.pays} 条，更新 ${res.changed.states} 人状态`;
+    if (res.changed.items) msg += `，${res.changed.items} 件道具`;
+    A.toast(msg);
   }
 
   /* ---------- 润色检查 ---------- */
