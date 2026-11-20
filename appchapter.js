@@ -16,12 +16,12 @@
     const b = cur();
     if (!b) { A.setView('home'); A.render(); return; }
     CHAPTER.init(b);
-    CHAPTER.init(b);
 
-    /* 顶栏条 */
-    stage.appendChild(topBar(b));
+    /* 章节页不需要审核意见悬浮窗：彻底清除绑定，避免 rAF 里被重新显示 */
+    if (window.FBFLOAT && FBFLOAT.clear) FBFLOAT.clear();
+    else if (window.FBFLOAT) FBFLOAT.hide();
 
-    /* 主体：左右分栏 */
+    /* 主体：左右分栏（顶栏信息已并入左侧头部） */
     const wrap = el('div', 'ch-split');
     const left = el('div', 'ch-left');
     const right = el('div', 'ch-right');
@@ -40,25 +40,7 @@
     if (drawerOpen) stage.appendChild(drawerEl(b));
   }
 
-  /* ---------- 顶部条 ---------- */
-  function topBar(b) {
-    const bar = el('div', 'ch-topbar');
-    const st = CHAPTER.stats(b);
-
-    const info = el('div', 'ct-info');
-    info.appendChild(el('b', '', '章节编排'));
-    info.appendChild(el('span', 'ct-sub', `${st.count} 章 · ${st.words.toLocaleString()} 字`));
-    bar.appendChild(info);
-
-    const ops = el('div', 'ct-ops');
-    const exp = el('button', 'mini', '导出全书');
-    exp.onclick = () => exportBook(b);
-    ops.appendChild(exp);
-    bar.appendChild(ops);
-    return bar;
-  }
-
-  /* ---------- 左侧头部：目录按钮 ---------- */
+  /* ---------- 左侧头部：目录 / 新建 / 导出（一行） ---------- */
   function leftHead(b) {
     const row = el('div', 'ch-lefthead');
     const btn = el('button', 'ch-toc-btn');
@@ -75,7 +57,10 @@
       A.persist(); A.render();
       toast('已新建「' + ch.title + '」');
     };
+    const exp = el('button', 'mini', '导出');
+    exp.onclick = () => exportBook(b);
     row.appendChild(add);
+    row.appendChild(exp);
     return row;
   }
 
@@ -188,16 +173,15 @@
 
     const foot = el('div', 'ce-foot');
     foot.appendChild(el('span', 'ce-words', (LEngine.cw(c.body) || 0) + ' 字'));
-    const clr = el('button', 'mini', '清空本页');
-    clr.onclick = () => {
-      if (!confirm('清空这一章的正文？\n\n只影响章节副本，原单元正文不受影响。')) return;
-      c.body = '';
-      ta.value = '';
-      A.persist();
-      A.render();
-      toast('已清空');
+    const cp = el('button', 'mini', '复制');
+    cp.title = '复制本章全文';
+    cp.onclick = () => {
+      const txt = (ta.value || '');
+      if (!txt.trim()) { toast('本章还是空的'); return; }
+      BOOKUI.copyText(txt);
+      toast('已复制 ' + txt.length + ' 字');
     };
-    foot.appendChild(clr);
+    foot.appendChild(cp);
     card.appendChild(foot);
 
     return card;
