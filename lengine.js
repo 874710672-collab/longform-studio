@@ -76,9 +76,63 @@
       f.world.forEach(w => L.push('- ' + (typeof w === 'string' ? w : w.rule)));
     }
     if (f.items && f.items.length) {
-      L.push('【关键物品】（只读）');
-      f.items.forEach(i => L.push('- ' + i.name + (i.desc ? '：' + i.desc : '') + (i.owner ? '（持有：' + i.owner + '）' : '')));
+      L.push('【关键道具】（只读，状态与持有者不许改）');
+      f.items.forEach(i => {
+        const bits = [i.name];
+        if (i.state) bits.push('状态：' + i.state);
+        if (i.holder) bits.push('持有：' + i.holder);
+        if (i.origin) bits.push('来历：' + i.origin);
+        if ((i.useUnits || []).length) bits.push('用到：第' + i.useUnits.join('、') + '篇');
+        let line = '- ' + bits.join('｜');
+        if (i.state === '已消耗' || i.state === '已损毁') {
+          line += '　※ 此物已' + (i.state === '已消耗' ? '耗尽' : '损毁') + '，后面不许再出现在人物手里或身上';
+        } else if (i.state === '已当掉' || i.state === '已送出') {
+          line += '　※ 此物当前不在原主手里';
+        }
+        L.push(line);
+      });
     }
+    return L.join('\n');
+  }
+
+  /* 猜本单元可能出场的人：优先取上一单元交棒单，退而取全部人物名 */
+  function castNamesNear(book, u) {
+    const names = [];
+    try {
+      const prev = prevUnitOf(book, u);
+      if (prev) {
+        const s = (prev.steps && prev.steps.relay) ? unitDoc(prev, 'relay') : '';
+        (book.facts.people || []).forEach(p => { if (p.name && s.indexOf(p.name) >= 0) names.push(p.name); });
+      }
+    } catch (e) { /* 忽略 */ }
+    if (!names.length) (book.facts.people || []).forEach(p => p.name && names.push(p.name));
+    return names;
+  }
+
+  /* 只取与本单元相关的道具（按篇号 + 出场人物持有） */
+  function itemsBlockFor(book, u, castNames) {
+    const items = (book.facts && book.facts.items) || [];
+    if (!items.length) return '';
+    const idx = (u && typeof u.idx === 'number') ? u.idx + 1 : null;
+    const names = castNames || [];
+    const hit = items.filter(it => {
+      if (idx && (it.useUnits || []).indexOf(idx) >= 0) return true;
+      if (it.holder && names.some(n => n && it.holder.indexOf(n) >= 0)) return true;
+      return false;
+    });
+    if (!hit.length) return '';
+    const L = ['【本单元涉及的关键道具】（只读）'];
+    hit.forEach(it => {
+      let line = '- ' + it.name;
+      if (it.state) line += '｜状态：' + it.state;
+      if (it.holder) line += '｜持有：' + it.holder;
+      if (it.origin) line += '｜来历：' + it.origin;
+      if ((it.useUnits || []).indexOf(idx) >= 0) line += '｜※ 本篇设定要用到它，必须让它出场';
+      if (it.state === '已消耗' || it.state === '已损毁') {
+        line += '｜※ 已' + (it.state === '已消耗' ? '耗尽' : '损毁') + '，不许出现在人物手里';
+      }
+      L.push(line);
+    });
     return L.join('\n');
   }
 
@@ -812,6 +866,7 @@
         spineAt: spineAtBlock(book, u),
         prevBlock: prevBlock(book, u),
         factsBlock: factsBlock(book),
+        itemsBlock: itemsBlockFor(book, u, castNamesNear(book, u)),
         fsBlock: fsBlock(book),
         kindText: u.kind === 'side' ? '副线单元（非主角视角）' : '主线单元',
         tierName: t.name, words: t.words, parts: t.parts, beats: u.beats
@@ -824,6 +879,7 @@
         idx: u.idx + 1,
         topic: unitDoc(u, 'topic'),
         factsBlock: factsBlock(book),
+        itemsBlock: itemsBlockFor(book, u, castNamesNear(book, u)),
         prevBlock: prevBlock(book, u),
         readerKnow: readerKnowBlock(book)
       }));
@@ -1111,6 +1167,7 @@
     const paysRaw = sec('回收的伏笔');
     const mustRaw = sec('下一单元必须接住的');
     const openingRaw = sec('留给下一单元的开场画面');
+    const itemsRaw = sec('关键道具去向');
 
     const changes = changesRaw.split('\n').map(l => l.trim().replace(/^[-·\d.、]\s*/, '')).filter(Boolean)
       .map(l => { const f = l.split(/[｜|]/); return { name: (f[0] || '').trim(), what: (f[1] || '').trim() }; })
@@ -1122,9 +1179,16 @@
 
     const must = mustRaw.split('\n').map(l => l.replace(/^\s*\d+[.、)]\s*/, '').trim()).filter(l => l && l !== '无');
 
+    const itemLines = itemsRaw.split('\n').map(l => l.trim().replace(/^[-·\d.、]\s*/, '')).filter(l => l && l !== '无' && l.indexOf('｜') > 0)
+      .map(l => {
+        const f = l.split(/[｜|]/).map(x => x.trim());
+        return { name: f[0] || '', holder: f[1] || '', state: f[2] || '' };
+      })
+      .filter(x => x.name);
+
     return {
       timePlace: timePlace.replace(/^[（(]|[）)]$/g, ''),
-      present, changes,
+      present, changes, itemLines,
       solved: solvedRaw.replace(/^[（(]|[）)]$/g, ''),
       plants, pays: paysRaw.replace(/^[（(]|[）)]$/g, ''),
       must: must.slice(0, 5),
@@ -1235,7 +1299,36 @@
   /* 把交棒单回写进书：伏笔表 + 人物状态 + 读者知识 */
   function applyRelay(book, u, relayText) {
     const r = parseRelay(relayText);
-    let changed = { plants: 0, pays: 0, states: 0 };
+    let changed = { plants: 0, pays: 0, states: 0, items: 0 };
+
+    /* 0.5 同步关键道具的持有者与状态 */
+    if (r.itemLines && r.itemLines.length && book.facts && Array.isArray(book.facts.items)) {
+      const STATES = ['完好', '有缺', '已当掉', '已损毁', '已送出', '已消耗'];
+      r.itemLines.forEach(line => {
+        const it = book.facts.items.find(x =>
+          x.name && line.name && (x.name.indexOf(line.name) >= 0 || line.name.indexOf(x.name) >= 0));
+        if (!it) {
+          /* 新出现的道具 → 自动收录 */
+          book.facts.items.push({
+            id: 'it' + Date.now().toString(36).slice(-4) + Math.random().toString(36).slice(2, 4),
+            name: line.name,
+            origin: '',
+            holder: line.holder || '',
+            useUnits: [],
+            state: STATES.indexOf(line.state) >= 0 ? line.state : '完好',
+            note: '第' + (u.idx + 1) + '篇交棒单自动收录',
+            fromRelay: u.id
+          });
+          changed.items++;
+          return;
+        }
+        let ch = false;
+        if (line.holder && it.holder !== line.holder) { it.holder = line.holder; ch = true; }
+        const st = STATES.find(x => x === line.state || (line.state && line.state.indexOf(x) >= 0));
+        if (st && it.state !== st) { it.state = st; ch = true; }
+        if (ch) changed.items++;
+      });
+    }
 
     /* 0. 交棒单文本本身入库，否则下一篇读不到 */
     if (u.steps && u.steps.relay && String(relayText || '').trim()) {
@@ -1658,7 +1751,7 @@
 
   window.LEngine = {
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
-    factsBlock, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
+    factsBlock, itemsBlockFor, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
