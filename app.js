@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v77-topbar-spine';
+window.APP_VERSION = 'v78-fab-visible';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -47,6 +47,17 @@ window.APP_VERSION = 'v77-topbar-spine';
     if (close) close.onclick = closeSheet;
     s.onclick = (e) => { if (e.target === s) closeSheet(); };
   }
+  /* 悬浮意见窗显示时，把浮动按钮挪到它左边，避免被挡住 */
+  function updateFabOffset() {
+    requestAnimationFrame(() => {
+      const fb = document.querySelector('.fb-float');
+      const showing = fb && !fb.hidden;
+      document.querySelectorAll('.fab-goto').forEach(n => {
+        n.classList.toggle('avoid-fb', !!showing);
+      });
+    });
+  }
+
   function closeSheet() {
     $('#sheet').hidden = true; $('#sheet').classList.add('hide');
     /* 弹窗关闭后恢复之前开着的悬浮意见窗 */
@@ -188,6 +199,11 @@ window.APP_VERSION = 'v77-topbar-spine';
     }
     /* 先隐藏悬浮意见窗，需要它的页面会在渲染中重新绑定 */
     if (window.FBFLOAT) FBFLOAT.hide();
+    /* 清掉上一页遗留的浮动按钮：position:fixed 的元素不会因 stage.innerHTML=''
+       而失去监听器残留，直接摘掉整个节点即可 */
+    document.querySelectorAll('.fab-goto').forEach(n => n.remove());
+    /* 意见窗显示与否会改变可用空间，更新浮动按钮的避让位置 */
+    updateFabOffset();
     if (cur) Books.migrateBook(cur);
     renderTop();
     renderSteps();
