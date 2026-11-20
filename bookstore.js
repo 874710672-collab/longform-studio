@@ -154,6 +154,15 @@
     ['people', 'world', 'items', 'anchors'].forEach(k => {
       if (!Array.isArray(b.facts[k])) b.facts[k] = [];
     });
+    /* 关键道具字段补齐 */
+    b.facts.items.forEach((it, i) => {
+      if (!it.id) it.id = 'it' + (i + 1);
+      if (!Array.isArray(it.useUnits)) it.useUnits = [];
+      if (!it.state) it.state = '完好';
+      if (it.holder === undefined) it.holder = '';
+      if (it.origin === undefined) it.origin = '';
+      if (it.note === undefined) it.note = '';
+    });
     ['spine', 'foreshadow', 'units', 'readerKnowledge', 'history', 'stages', 'volumes'].forEach(k => {
       if (!Array.isArray(b[k])) b[k] = [];
     });
