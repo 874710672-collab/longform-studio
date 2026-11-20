@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v76-locate-fix';
+window.APP_VERSION = 'v77-topbar-spine';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -756,7 +756,13 @@ window.APP_VERSION = 'v76-locate-fix';
     if (busy) { toast('正在生成，先等一下'); return; }
     if (!cur) return;
     view = 'book';
-    /* 优先进入「有内容但还没通过」的那一环，其次第一个没做完的 */
+    /* 顶栏按钮「▦ 推进表」直接指向主线推进表 */
+    if (curStep === 'spine' || (cur.steps.spine && cur.steps.spine.versions.length)) {
+      curStep = 'spine';
+      render();
+      return;
+    }
+    /* 还没生成推进表 → 回到能推进的那一环 */
     const order = LT.BOOK_STEPS;
     const withContent = order.find(k => {
       const s = cur.steps[k];
