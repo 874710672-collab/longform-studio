@@ -20,7 +20,8 @@
     const peopleN = (f.people || []).length;
     const worldN = (f.world || []).length;
     const openFs = (b.foreshadow || []).filter(x => x.status === 'open').length;
-    h.appendChild(el('span', 'tag', `${peopleN} 人 · ${worldN} 条规则 · ${openFs} 条待收伏笔`));
+    const itemsN = (f.items || []).length;
+    h.appendChild(el('span', 'tag', `${peopleN} 人 · ${worldN} 条规则 · ${itemsN} 件道具 · ${openFs} 条待收伏笔`));
     top.appendChild(h);
     top.appendChild(el('div', 'hint', '这张表是所有单元共用的底座。只增不改——改了就前后对不上。'));
 
@@ -114,6 +115,9 @@
       wc.appendChild(row);
     });
     stage.appendChild(wc);
+
+    /* 关键道具 */
+    appItemsCard(f, b);
 
     /* 伏笔 */
     const fc = el('div', 'card');
@@ -335,6 +339,190 @@
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  /* ---------- 关键道具 ---------- */
+  const ITEM_STATES = ['完好', '有缺', '已当掉', '已损毁', '已送出', '已消耗'];
+  const BAD_STATES = { '已损毁': 1, '已消耗': 1 };
+
+  function appItemsCard(f, b) {
+    const c = el('div', 'card');
+    const items = f.items || [];
+    const h = el('h3', '', '关键道具');
+    h.appendChild(el('span', 'tag', items.length ? items.length + ' 件' : '空'));
+    c.appendChild(h);
+    c.appendChild(el('div', 'hint',
+      '会跨篇流转的东西写这里（刀、证物、信物、钱）。写清「在哪几篇用到」，写单元时自动带进去。'
+      + '日用杂物不用记。'));
+
+    const bar = el('div', 'list-acts');
+    const add = el('button', 'mini on', '＋ 新增道具');
+    add.onclick = () => editItem(b, null);
+    bar.appendChild(add);
+    c.appendChild(bar);
+
+    if (!items.length) {
+      c.appendChild(el('div', 'empty-tip', '还没有道具记录。写单元时提到的关键物件会在这里提示收录。'));
+      stage.appendChild(c);
+      return;
+    }
+
+    /* 按状态排序：还能用的在前 */
+    const sorted = [...items].sort((x, y) => {
+      const ax = BAD_STATES[x.state] ? 1 : 0, ay = BAD_STATES[y.state] ? 1 : 0;
+      if (ax !== ay) return ax - ay;
+      const ux = Math.min.apply(null, (x.useUnits || []).concat([9999]));
+      const uy = Math.min.apply(null, (y.useUnits || []).concat([9999]));
+      return ux - uy;
+    });
+
+    sorted.forEach(it => {
+      const dead = BAD_STATES[it.state];
+      const row = el('div', 'fact-item' + (dead ? ' paid' : ''));
+      const line = el('div', 'fi-line');
+      line.appendChild(el('b', '', it.name || '（无名）'));
+      const stCls = it.state === '完好' ? 'badge ok'
+        : (it.state === '有缺' ? 'badge warn' : 'badge');
+      line.appendChild(el('span', stCls, it.state || '完好'));
+      if (it.holder) line.appendChild(el('span', 'sub', '持有：' + it.holder));
+      row.appendChild(line);
+
+      if (it.origin) row.appendChild(el('div', 'fi-voice', '来历：' + it.origin));
+
+      const us = (it.useUnits || []).slice().sort((a, c2) => a - c2);
+      const meta = el('div', 'sub');
+      meta.textContent = us.length ? '使用篇：第 ' + us.join('、') + ' 篇' : '使用篇：未设定';
+      row.appendChild(meta);
+
+      if (it.note) row.appendChild(el('div', 'sub', it.note));
+
+      const ops = el('div', 'fi-ops');
+      const ed = el('button', 'mini', '编辑');
+      ed.onclick = () => editItem(b, it);
+      ops.appendChild(ed);
+
+      /* 快速改状态 */
+      const nx = ITEM_STATES.indexOf(it.state || '完好');
+      if (nx >= 0 && nx < ITEM_STATES.length - 1) {
+        const nxt = el('button', 'mini', '→ ' + ITEM_STATES[nx + 1]);
+        nxt.title = '把状态改为「' + ITEM_STATES[nx + 1] + '」';
+        nxt.onclick = () => {
+          it.state = ITEM_STATES[nx + 1];
+          Books.pushHistory(b, '道具状态', it.name + ' → ' + it.state);
+          A.persist(); A.render();
+          toast(it.name + ' 已改为「' + it.state + '」');
+        };
+        ops.appendChild(nxt);
+      }
+
+      const del = el('button', 'mini danger-t', '删');
+      del.onclick = () => {
+        if (!confirm('删除道具「' + it.name + '」？\n\n删除后不再追踪这件东西。')) return;
+        b.facts.items = b.facts.items.filter(y => y !== it);
+        Books.pushHistory(b, '删除道具', it.name);
+        A.persist(); A.render();
+        toast('已删除');
+      };
+      ops.appendChild(del);
+      row.appendChild(ops);
+      c.appendChild(row);
+    });
+
+    stage.appendChild(c);
+  }
+
+  function editItem(b, it) {
+    const isNew = !it;
+    if (!b.facts.items) b.facts.items = [];
+    const d = it || { name: '', origin: '', holder: '', useUnits: [], state: '完好', note: '' };
+    const units = (d.useUnits || []).slice().sort((x, y) => x - y);
+
+    let html = `<h2>${isNew ? '新增关键道具' : '编辑道具'}<button class="close">×</button></h2>`;
+    html += `<div class="field"><label>名称</label><input id="itName" value="${esc(d.name)}" placeholder="例：祖传菜刀"></div>`;
+    html += `<div class="field"><label>来历</label><textarea id="itOrigin" rows="2" placeholder="怎么来的、有什么特征">${esc(d.origin)}</textarea></div>`;
+    html += `<div class="field"><label>持有者 / 当前位置</label><input id="itHolder" value="${esc(d.holder)}" placeholder="例：林建军 / 镇上当铺"></div>`;
+    html += `<div class="field"><label>当前状态</label><select id="itState">`;
+    ITEM_STATES.forEach(st => {
+      html += `<option value="${st}"${(d.state || '完好') === st ? ' selected' : ''}>${st}</option>`;
+    });
+    html += `</select></div>`;
+    html += `<div class="field"><label>使用篇（第几篇会用到）</label>`;
+    html += `<div class="hint">填单元序号，可加多个。写到那一篇时系统会提醒你让它出场。</div>`;
+    html += `<div class="it-tags" id="itTags">`;
+    units.forEach(n => {
+      html += `<span class="it-tag" data-n="${n}">第${n}篇<i>×</i></span>`;
+    });
+    html += `</div>`;
+    html += `<div class="it-add"><input type="number" id="itNewUnit" min="1" placeholder="篇号"><button class="mini" id="itAddBtn">＋ 加入</button></div>`;
+    html += `</div>`;
+    html += `<div class="field"><label>备注</label><input id="itNote" value="${esc(d.note)}" placeholder="可选"></div>`;
+    html += `<div class="sheet-acts"><button class="primary-btn" id="saveIt">保存</button></div>`;
+
+    A.sheet(html, (root) => {
+      const tags = root.querySelector('#itTags');
+      function addTag(n) {
+        if (!n || n < 1) return;
+        if ([...tags.querySelectorAll('.it-tag')].some(t => +t.dataset.n === n)) return;
+        const sp = document.createElement('span');
+        sp.className = 'it-tag';
+        sp.dataset.n = n;
+        sp.innerHTML = '第' + n + '篇<i>×</i>';
+        tags.appendChild(sp);
+        bindTag(sp);
+      }
+      function bindTag(sp) {
+        sp.querySelector('i').onclick = () => sp.remove();
+      }
+      tags.querySelectorAll('.it-tag').forEach(bindTag);
+
+      root.querySelector('#itAddBtn').onclick = () => {
+        const inp = root.querySelector('#itNewUnit');
+        addTag(parseInt(inp.value, 10));
+        inp.value = '';
+      };
+      root.querySelector('#itNewUnit').onkeydown = (e) => {
+        if (e.key === 'Enter') { addTag(parseInt(e.target.value, 10)); e.target.value = ''; }
+      };
+
+      root.querySelector('#saveIt').onclick = () => {
+        const name = root.querySelector('#itName').value.trim();
+        if (!name) { toast('请填名称'); return; }
+        const useUnits = [...tags.querySelectorAll('.it-tag')]
+          .map(t => +t.dataset.n).filter(n => n > 0).sort((a2, c2) => a2 - c2);
+
+        const data = {
+          name,
+          origin: root.querySelector('#itOrigin').value.trim(),
+          holder: root.querySelector('#itHolder').value.trim(),
+          state: root.querySelector('#itState').value,
+          useUnits,
+          note: root.querySelector('#itNote').value.trim()
+        };
+
+        if (isNew) {
+          data.id = 'it' + Date.now().toString(36).slice(-4);
+          b.facts.items.push(data);
+          Books.pushHistory(b, '新增道具', name);
+          toast('已添加「' + name + '」');
+        } else {
+          Object.assign(it, data);
+          Books.pushHistory(b, '编辑道具', name);
+          toast('已保存');
+        }
+        A.persist(); A.closeSheet(); A.render();
+      };
+    });
+  }
+
+  /* 取某篇相关的道具（给生成单元用） */
+  function itemsForUnit(b, idx, castNames) {
+    const items = (b.facts && b.facts.items) || [];
+    const names = castNames || [];
+    return items.filter(it => {
+      if ((it.useUnits || []).indexOf(idx) >= 0) return true;
+      if (it.holder && names.some(n => it.holder.indexOf(n) >= 0)) return true;
+      return false;
+    });
+  }
+
   /* ---------- 编辑 / 新增伏笔 ---------- */
   function editForeshadow(b, fs) {
     if (!b.foreshadow) b.foreshadow = [];
@@ -426,5 +614,5 @@
     });
   }
 
-  window.FACTSUI = { renderFacts };
+  window.FACTSUI = { renderFacts, editItem, itemsForUnit, ITEM_STATES };
 })();
