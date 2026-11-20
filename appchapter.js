@@ -37,7 +37,20 @@
     right.appendChild(compareCard(b));
 
     /* 抽屉 */
-    if (drawerOpen) stage.appendChild(drawerEl(b));
+    if (drawerOpen) {
+      /* 抽屉要压在顶栏下方：实测页头 + 步骤条的总高度 */
+      const head = document.getElementById('titlebarProj') || document.querySelector('.topbar, #topbar');
+      const steps = document.getElementById('steps');
+      let top = 0;
+      if (steps) top = Math.max(top, steps.getBoundingClientRect().bottom);
+      if (head) {
+        const hb = head.getBoundingClientRect();
+        if (hb.height) top = Math.max(top, hb.bottom);
+      }
+      if (!top || top < 40) top = 96;   /* 兜底 */
+      document.documentElement.style.setProperty('--ch-drawer-top', Math.round(top) + 'px');
+      stage.appendChild(drawerEl(b));
+    }
   }
 
   /* ---------- 左侧头部：目录 / 新建 / 导出（一行） ---------- */
