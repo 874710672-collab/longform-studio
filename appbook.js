@@ -230,6 +230,107 @@
 
     /* 审核意见：卡片视图里也要能写，否则「按意见改」用不了 */
     stage.appendChild(BOOKUI.feedbackCard(s, 'spine'));
+
+    /* 自动定位 + 浮动定位按钮 */
+    spineAutoScroll(b);
+    stage.appendChild(spineGotoFab(b));
+  }
+
+  /* ---------- 推进表定位 ---------- */
+
+  /* 当前该关注哪一格：优先有内容的最后一格之后，退而求第一格没内容的 */
+  function spineTargetStep(b) {
+    const cells = b.spine || [];
+    if (!cells.length) return -1;
+
+    let lastDone = -1, firstOpen = -1;
+    cells.forEach(c => {
+      const u = GRID.unitOfCell(b, c);
+      const done = u && LEngine.unitHasContent(u);
+      if (done) lastDone = c.step;
+      else if (firstOpen < 0) firstOpen = c.step;
+    });
+
+    if (firstOpen < 0) return lastDone;              /* 全写完了 */
+    return firstOpen;                                 /* 第一格还没写的 */
+  }
+
+  /* 当前所在卷（用于文案） */
+  function spineVolOf(b, step) {
+    return (b.volumes || []).find(v => step >= v.fromStep && step <= v.toStep) || null;
+  }
+
+  /* 把某个元素滚到容器垂直居中的目标位置 */
+  function centerScrollTop(st, node) {
+    const nr = node.getBoundingClientRect();
+    const sr = st.getBoundingClientRect();
+    const delta = (nr.top + nr.height / 2) - (sr.top + st.clientHeight / 2);
+    return Math.max(0, st.scrollTop + delta);
+  }
+
+  function spineAutoScroll(b) {
+    if (window.__prevView === 'book' && window.__prevSpineStep === b.bookStep) return;  /* 同一页反复渲染不重置 */
+    window.__prevSpineStep = b.bookStep;
+
+    const target = spineTargetStep(b);
+    if (target < 0) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const st = document.getElementById('stage');
+        if (!st) return;
+        const card = st.querySelector('.grid-card[data-step="' + target + '"]');
+        if (!card) return;
+        st.scrollTop = centerScrollTop(st, card);
+      });
+    });
+  }
+
+  function spineGotoFab(b) {
+    const target = spineTargetStep(b);
+    if (target < 0) return document.createDocumentFragment();
+
+    const vol = spineVolOf(b, target);
+    const cell = (b.spine || []).find(c => c.step === target);
+    const u = cell ? GRID.unitOfCell(b, cell) : null;
+    const done = u && LEngine.unitHasContent(u);
+
+    const wrap = el('div', 'fab-goto');
+    const label = el('span', 'fg-label');
+    let txt = '第 ' + target + ' 格';
+    if (vol) txt = '卷' + vol.vol + ' · ' + txt;
+    if (cell && cell.title) txt += '　' + String(cell.title).slice(0, 10);
+    label.textContent = txt;
+
+    const btn = el('button', 'fg-btn');
+    btn.appendChild(el('span', 'fg-ico', '⌖'));
+    btn.appendChild(el('span', '', '定位'));
+    wrap.appendChild(label);
+    wrap.appendChild(btn);
+
+    const doScroll = () => {
+      const st = document.getElementById('stage');
+      if (!st) return;
+      const card = st.querySelector('.grid-card[data-step="' + target + '"]');
+      if (!card) return;
+      st.scrollTo({ top: centerScrollTop(st, card), behavior: 'smooth' });
+    };
+    btn.onclick = doScroll;
+
+    const st = document.getElementById('stage');
+    const checkVisible = () => {
+      const card = st && st.querySelector('.grid-card[data-step="' + target + '"]');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      const sr = st.getBoundingClientRect();
+      const visible = r.bottom > sr.top + 40 && r.top < sr.bottom - 40;
+      wrap.classList.toggle('hide', visible);
+    };
+    if (st) {
+      st.addEventListener('scroll', checkVisible, { passive: true });
+      setTimeout(checkVisible, 150);
+    }
+    return wrap;
   }
 
   /* 卷结构面板（推进表上方） */
