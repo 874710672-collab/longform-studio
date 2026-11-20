@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v78-fab-visible';
+window.APP_VERSION = 'v79-fab-body';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -52,11 +52,23 @@ window.APP_VERSION = 'v78-fab-visible';
     requestAnimationFrame(() => {
       const fb = document.querySelector('.fb-float');
       const showing = fb && !fb.hidden;
+      const dock = document.getElementById('dock');
+      const dockH = (dock && !dock.classList.contains('empty')) ? dock.offsetHeight : 0;
       document.querySelectorAll('.fab-goto').forEach(n => {
         n.classList.toggle('avoid-fb', !!showing);
+        /* 底栏高度各设备不同，实测后写入 CSS 变量 */
+        n.style.setProperty('--fab-bottom', (dockH + 24) + 'px');
       });
     });
   }
+
+  /* 意见窗一显示/隐藏就调一次避让 */
+  (function watchFb() {
+    const fb = document.querySelector('.fb-float');
+    if (!fb) { setTimeout(watchFb, 500); return; }
+    new MutationObserver(updateFabOffset)
+      .observe(fb, { attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+  })();
 
   function closeSheet() {
     $('#sheet').hidden = true; $('#sheet').classList.add('hide');
