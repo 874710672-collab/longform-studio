@@ -115,8 +115,9 @@
     /* 自动定位到当前进度 */
     scheduleAutoScroll(b);
 
-    /* 浮动「定位」按钮 */
-    stage.appendChild(gotoFab(b));
+    /* 浮动「定位」按钮：挂 body，避免被 stage 的滚动容器带走 */
+    const fabNode = gotoFab(b);
+    if (fabNode && fabNode.nodeType === 1) document.body.appendChild(fabNode);
   }
 
   /* 计算「当前应该定位到哪一篇」 */
