@@ -844,25 +844,25 @@
 /* ---------- 单元列表：定位浮动条 ---------- */
 .fab-goto{
   position:fixed;
-  /* 右下角，底栏上方；意见窗出现时由 JS 抬高避让 */
-  right:14px;left:auto;
-  bottom:calc(76px + env(safe-area-inset-bottom, 0px));
+  /* 居中底部，底栏上方；按钮挂在 body 上，滚动时固定不动 */
+  left:50%;right:auto;transform:translateX(-50%);
+  bottom:var(--fab-bottom, calc(76px + env(safe-area-inset-bottom, 0px)));
   z-index:70;
   max-width:calc(100vw - 28px);
-  /* 用 JS 写入的实测偏移兜底（顶栏高度在不同设备上不一样） */
-  bottom:var(--fab-bottom, calc(76px + env(safe-area-inset-bottom, 0px)));
   display:flex;align-items:center;gap:8px;
   padding:6px 7px 6px 13px;border-radius:22px;
   background:rgba(28,27,33,.94);
   border:1px solid rgba(185,166,255,.35);
   box-shadow:0 6px 22px rgba(0,0,0,.45);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  transition:opacity .2s, transform .2s;
+  transition:opacity .22s, transform .22s;
 }
 
-/* 目标已居中时只淡化，不隐藏——保持不变才能找到它 */
-.fab-goto.dim{opacity:.55}
-.fab-goto.dim:hover{opacity:1}
+/* 目标已在视野内时滑到下方隐藏，需要时再冒出 */
+.fab-goto.hide{
+  opacity:0;pointer-events:none;
+  transform:translateY(14px);
+}
 .fg-label{font-size:11px;color:var(--accent2);white-space:nowrap}
 .fg-btn{
   display:flex;align-items:center;gap:3px;
@@ -1010,6 +1010,3 @@ body.dock-hidden #stage,
 .it-tag i:hover{opacity:1;color:#ff9c9c}
 .it-add{display:flex;gap:6px;align-items:center;margin-top:4px}
 .it-add input{width:80px;padding:4px 8px;font-size:13px}
-
-/* 审核意见窗出现时，定位按钮抬到它上方 */
-.fab-goto.avoid-fb{bottom:calc(320px + env(safe-area-inset-bottom, 0px))!important}
