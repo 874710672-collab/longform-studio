@@ -76,6 +76,15 @@
     notify();
   }
 
+  /* 彻底清除：隐藏并断掉绑定，章节页等不需要意见窗的页面用 */
+  function clear() {
+    const e = els();
+    if (e.box) e.box.hidden = true;
+    curStepRef = null;
+    lastStep = null;
+    notify();
+  }
+
   /* 用户主动关闭（点 ×）：隐藏但保留可唤回 */
   function close() {
     const e = els();
@@ -219,5 +228,5 @@
     document.body.appendChild(box);
   }
 
-  window.FBFLOAT = { init, bind, hide, close, show, collapse, isShowing, hasTarget };
+  window.FBFLOAT = { init, bind, hide, close, show, collapse, isShowing, hasTarget, clear};
 })();
