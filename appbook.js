@@ -37,6 +37,12 @@
     if (s.versions.length > 1) card.appendChild(versionTabs(s, () => A.render()));
 
     const box = el('div', 'card');
+    /* 总纲页：三级推进以卡片为准，文本里的那段只作归档 */
+    if (k === 'book') {
+      box.appendChild(el('div', 'hint',
+        '【三级推进】以上方卡片为准。这里改文字不会影响卡片；'
+        + '要改三级推进，请点卡片上的「编辑」。'));
+    }
     const pre = el('div', 'doc');
     const text = A.docOf(s);
     pre.textContent = text || (A.busy ? '' : placeholder(k));
@@ -79,7 +85,8 @@
     const c = el('div', 'card');
     const h = el('h3', '', '三级推进');
     const text = LEngine.docOf(b.steps.book);
-    /* 首次进入自动解析并存档 */
+    /* 【卡片为准】只在首次（b.stages 为空）时从文本解析一次；
+       之后文本里的【三级推进】只作归档，改卡片不会再被文本覆盖 */
     if ((!b.stages || !b.stages.length) && text) {
       const parsed = LEngine.parseStages(text);
       if (parsed.length) { b.stages = parsed; A.persist(); }
@@ -93,7 +100,7 @@
         ? '总纲里没有解析出【三级推进】。检查格式，或点下面的「重新解析」。'
         : '先生成全书总纲，这里会出现三级推进。'));
       if (text) {
-        const btn = el('button', 'ghost-btn wide', '重新解析三级推进');
+        const btn = el('button', 'ghost-btn wide', '从总纲文本解析三级推进');
         btn.onclick = () => {
           b.stages = LEngine.parseStages(LEngine.docOf(b.steps.book));
           A.persist(); A.render();
@@ -156,8 +163,8 @@
         st.conflict = root.querySelector('#stConflict').value.trim();
         st.fromVol = parseInt(root.querySelector('#stFrom').value, 10) || 1;
         st.toVol = parseInt(root.querySelector('#stTo').value, 10) || plan.phases;
-        b.stages = LEngine.parseStages(LEngine.docOf(b.steps.book));
-        /* 用编辑后的覆盖回到 b.stages */
+        /* 【卡片为准】直接写回 b.stages，不再从文本重新解析（否则会覆盖掉本次修改） */
+        if (!b.stages) b.stages = [];
         const i = b.stages.findIndex(x => x.num === st.num);
         if (i >= 0) b.stages[i] = st; else b.stages.push(st);
         Books.pushHistory(b, '编辑三级推进', '第' + st.num + '级 ' + st.name);
