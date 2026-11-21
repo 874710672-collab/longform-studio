@@ -142,9 +142,10 @@
     if (window.APP && APP.updateDock) APP.updateDock();
   }
 
-  function hide() {
+  /* 隐藏框但不改变"用户是否开着"的记忆（切换环节时用） */
+  function hide(silent) {
     if (box) box.hidden = true;
-    localStorage.setItem(OPEN_KEY, '0');
+    if (!silent) localStorage.setItem(OPEN_KEY, '0');
   }
 
   function isShowing() { return !!(box && !box.hidden); }
@@ -265,7 +266,8 @@
     }
   }
 
-  /* ---------------- 对外：绑定当前单元/节 ---------------- */
+  /* ---------------- 对外：绑定当前单元/节 ----------------
+     只在「分节正文」环节调用；离开该环节必须调用 detach() */
   function attach(book, unit, partIdx) {
     curBook = book; curUnit = unit; curIdx = partIdx || 0;
     if (!box) build();
@@ -281,6 +283,12 @@
     } else if (box) {
       box.hidden = true;
     }
+  }
+
+  /* 离开「分节正文」环节：隐藏并断开上下文 */
+  function detach() {
+    if (box) box.hidden = true;
+    curBook = null; curUnit = null; curIdx = 0;
   }
 
   /* ---------------- 对外：生成一版要素 ---------------- */
@@ -367,7 +375,7 @@
   }
 
   window.MATFLOAT = {
-    show, hide, isShowing, attach, generate, paint,
+    show, hide, isShowing, attach, detach, generate, paint,
     toggleFold, curMatHolder,
     W, H
   };
