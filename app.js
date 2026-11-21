@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v83-elements';
+window.APP_VERSION = 'v84-elements-scope';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -220,6 +220,12 @@ window.APP_VERSION = 'v83-elements';
     $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid' || view === 'chapter');
     stage.innerHTML = '';
     window.__curView = view;   /* 记录本次渲染的视图，供下次判断 */
+
+    /* 素材悬浮框只在「单元 · 分节正文」环节显示，其余一律收起
+       （用 hide 而不是 detach：detach 会清空上下文，切回来时 attach 才重新绑定） */
+    if (window.MATFLOAT && MATFLOAT.hide) {
+      if (!(view === 'unit' && curUnitStep === 'draft')) MATFLOAT.hide(true);
+    }
     if (view === 'home') { renderHome(); updateDock(); return; }
     if (view === 'settings') { renderSettings(); updateDock(); return; }
     if (view === 'backup') { BACKUPUI.renderBackup(); updateDock(); return; }
