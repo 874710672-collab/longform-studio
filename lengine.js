@@ -933,6 +933,36 @@
   }
 
   /* ---------- 单节正文 ---------- */
+  /* 构成要素：只出素材，不写正文 */
+  async function genPartElements(book, u, idx, onDelta, signal) {
+    const P = LP.get();
+    const t = tierOf(u);
+    const plan = outlinePlan(unitDoc(u, 'outline'));
+    const d = u.steps.draft;
+    const parts = d.parts || [];
+    const partTitle = (plan[idx] && plan[idx].title) || ('第' + (idx + 1) + '节');
+    const partWords = (plan[idx] && plan[idx].words) || Math.round(t.words / Math.max(t.parts, plan.length || t.parts));
+    const prevParts = parts.slice(0, idx).filter(Boolean).map(x => x.title + '\n' + x.body).join('\n\n');
+
+    /* 只给这一节的大纲片段，避免模型写到别的节 */
+    const segs = String(unitDoc(u, 'outline') || '').split(/(?=第\s*\d+\s*节)/);
+    const mine = segs.find(x => new RegExp('第\\s*' + (idx + 1) + '\\s*节').test(x)) || segs[idx] || '';
+
+    const user = LP.fill(P.partElements, {
+      idx: u.idx + 1,
+      partTitle,
+      topic: unitDoc(u, 'topic'),
+      outlineAt: mine.trim() || unitDoc(u, 'outline'),
+      prevParts: prevParts.slice(-2500) || '（本篇还没有前文，这是第一节）',
+      brief: briefText(book.brief),
+      fsBlock: fsBlock(book),
+      partWords,
+      beats: Math.max(3, Math.min(10, Math.round((u.beats || 4) / Math.max(1, t.parts)))),
+      feedback: feedbackOf(d)
+    });
+    return API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
+  }
+
   async function genPart(book, u, idx, onDelta, signal) {
     const P = LP.get();
     const t = tierOf(u);
@@ -1751,7 +1781,7 @@
 
   window.LEngine = {
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
-    factsBlock, itemsBlockFor, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
+    genPartElements, factsBlock, itemsBlockFor, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
