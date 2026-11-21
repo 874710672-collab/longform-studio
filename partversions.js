@@ -56,7 +56,17 @@
     const cur = part.body || '';
     if (!cur.trim()) return;
     if (part.versions.some(v => normText(v.text) === normText(cur))) return;
-    part.versions.push({ text: cur, at: Date.now(), note: note || '' });
+    /* 沿用当前选中那一版的来源标记（人工 / AI），避免快照后丢失身份 */
+    const src = (part.sel >= 0 && part.versions[part.sel]) ? part.versions[part.sel] : null;
+    const snap = { text: cur, at: Date.now(), note: note || '' };
+    if (src && src.manual) {
+      snap.manual = true;
+      /* 有内容了就不再是"空白稿"，但仍然是人工稿 */
+      snap.blank = false;
+    } else {
+      snap.manual = false;
+    }
+    part.versions.push(snap);
     while (part.versions.length > MAX_KEEP) part.versions.shift();
   }
 
