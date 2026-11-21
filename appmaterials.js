@@ -406,26 +406,32 @@
     const p = parts[idx];
     if (!Array.isArray(p.versions)) p.versions = [];
 
-    /* 当前正文先入册，避免被覆盖丢失 */
-    if (window.PARTVER) {
-      try { PARTVER.snapshot(p, '生成要素前'); } catch (e) {}
-    }
-
-    /* 如果当前已经有一版空的「人工」稿，就复用它，不再追加 */
-    /* 只复用「人工且确实还是空」的那一版；用户已经写进去内容就不再动它 */
-    const existBlank = p.versions.findIndex((v, i) => {
-      if (!v.manual || !v.blank) return false;
-      if (String(v.text || '').trim()) return false;
-      /* 当前选中的这一版要看 body（用户可能已经手写进去） */
-      if (i === p.sel && String(p.body || '').trim()) return false;
-      return true;
-    });
-    if (existBlank >= 0) {
-      p.sel = existBlank;
-      p.body = '';
+    /* ① 如果当前选中的就是人工稿 → 什么都不做，继续用它
+          （你在里面写的字原样保留，不产生新稿） */
+    const cur = (p.sel >= 0) ? p.versions[p.sel] : null;
+    if (cur && cur.manual) {
+      /* 把 body 同步回这一版，确保内容不丢 */
+      if (String(p.body || '').trim()) {
+        cur.text = p.body;
+        cur.at = Date.now();
+      }
       return;
     }
-    /* 追加空白稿 */
+
+    /* ② 已有别的「人工稿」（不管空不空）→ 切过去，不再新建 */
+    const existManual = p.versions.findIndex(v => v.manual);
+    if (existManual >= 0) {
+      p.sel = existManual;
+      p.body = p.versions[existManual].text || '';
+      return;
+    }
+
+    /* ③ 一版人工稿都没有 → 把当前 AI 稿入册后，新建唯一的一份人工稿 */
+    const snap = p.body || '';
+    if (snap.trim() && !p.versions.some(v => (v.text || '') === snap)) {
+      p.versions.push({ text: snap, at: Date.now(), note: 'AI 生成', manual: false });
+    }
+
     p.versions.push({ text: '', at: Date.now(), note: '人工', manual: true, blank: true });
     p.sel = p.versions.length - 1;
     p.body = '';
