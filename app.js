@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v82-stages-owner';
+window.APP_VERSION = 'v83-elements';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -13,7 +13,7 @@ window.APP_VERSION = 'v82-stages-owner';
     project: $('#tbProject'), sub: $('#tbSub'), steps: $('#steps'),
     dockInfo: $('#dockInfo'), bGen: $('#btnGen'), bRegen: $('#btnRegen'), bRevise: $('#btnRevise'),
     bApprove: $('#btnApprove'), bStop: $('#btnStop'), bUnits: $('#btnUnits'),
-    bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb'), bChapter: $('#btnChapter'), bGrid: $('#btnGrid')
+    bElements: $('#btnElements'), bBook: $('#btnBook'), bFacts: $('#btnFacts'), bAudit: $('#btnAudit'), bFb: $('#btnFb'), bChapter: $('#btnChapter'), bGrid: $('#btnGrid')
   };
 
   let cur = Books.current();
@@ -251,6 +251,11 @@ window.APP_VERSION = 'v82-stages-owner';
 
     els.bGen.hidden = bz || has;
     els.bRevise.hidden = bz || !has;
+
+    /* ✦ 要素：只在「分节正文」环节出现，放在「✎ 改本节」左边 */
+    if (els.bElements) {
+      els.bElements.hidden = !(isUnit && k === 'draft') || bz;
+    }
     els.bRegen.hidden = bz || !has;
     els.bApprove.hidden = bz || !has;
 
