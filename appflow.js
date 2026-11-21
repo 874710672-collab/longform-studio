@@ -41,6 +41,11 @@
     d.partIdx = idx;
     const busy = A.busy;
 
+    /* 素材悬浮框跟随当前单元/节切换 */
+    if (window.MATFLOAT) {
+      setTimeout(() => { try { MATFLOAT.attach(b, u, idx); } catch (e) {} }, 0);
+    }
+
     const wrap = el('div', 'split');
     const left = el('div');
     const right = el('div');
@@ -161,6 +166,11 @@
     part.versions.forEach((v, i) => {
       const t = el('button', 'pv-tab' + (part.sel === i ? ' on' : ''));
       t.appendChild(el('span', '', '稿 ' + (i + 1)));
+      /* 来源标记：人工 / AI */
+      const isManual = !!(v.manual || (v.note && v.note.indexOf('人工') >= 0));
+      const srcTag = el('span', 'tag-src', isManual ? '人工' : 'AI');
+      if (isManual) srcTag.style.color = '#ffab5e', srcTag.style.borderColor = 'rgba(255,171,94,.45)';
+      t.appendChild(srcTag);
       t.title = (v.note ? v.note + ' · ' : '') + new Date(v.at || Date.now()).toLocaleString('zh-CN');
       t.onclick = () => {
         if (part.sel === i) return;
@@ -272,9 +282,11 @@
         /* 当前有明确指向：就地更新那一版 */
         p.versions[p.sel].text = txt;
         p.versions[p.sel].at = Date.now();
+        /* 手动改过 → 标记为人工，标签会显示「人工」 */
+        p.versions[p.sel].manual = true;
       } else if (p.versions.length === 0) {
         /* 一个版本都没有：建一条 */
-        p.versions.push({ text: txt, at: Date.now(), note: '手动编辑' });
+        p.versions.push({ text: txt, at: Date.now(), note: '手动编辑', manual: true });
         p.sel = 0;
       } else {
         /* sel 无效但有历史：按内容找，找不到就建一条新的 */
@@ -654,6 +666,21 @@
     if ((c.feedback || '').trim()) REVISEUI.reviseFresh();
     else REVISEUI.regen();
   };
+  /* ✦ 要素：只拆解构成要素，不写正文 */
+  const elementsBtn = document.getElementById('btnElements');
+  if (elementsBtn) {
+    elementsBtn.onclick = () => {
+      if (A.busy || !cur()) return;
+      if (A.view !== 'unit' || A.curUnitStep !== 'draft') {
+        toast('只在「分节正文」环节可用');
+        return;
+      }
+      const u = A.curUnit();
+      MATFLOAT.attach(cur(), u, u.steps.draft.partIdx || 0);
+      MATFLOAT.generate();
+    };
+  }
+
   /* ✎ 按意见改原稿：带原稿 + 意见，只改提到的地方 */
   reviseBtn.onclick = () => {
     if (A.busy || !cur()) return;
