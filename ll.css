@@ -1089,3 +1089,35 @@ body.dock-hidden #stage,
   border:1px solid rgba(255,171,94,.3);font-weight:400;
   vertical-align:middle;
 }
+
+/* 素材框：删除按钮 */
+.mat-del{
+  width:22px;height:22px;border-radius:6px;flex:0 0 auto;
+  background:transparent;border:none;color:#ff8f8f;font-size:15px;
+  line-height:1;
+}
+.mat-del:hover{background:rgba(255,110,110,.18)}
+.mat-del:active{opacity:.7}
+
+/* 素材删除确认层 */
+.mat-confirm-back{
+  position:fixed;inset:0;z-index:95;
+  background:rgba(10,9,12,.62);
+  display:flex;align-items:center;justify-content:center;
+  padding:18px;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+}
+.mat-confirm-card{
+  width:100%;max-width:380px;
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;
+  padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.6);
+}
+.mat-confirm-card h2{
+  margin:0 0 8px;font-size:16px;display:flex;align-items:center;justify-content:space-between;
+}
+.mat-preview{
+  max-height:120px;overflow:auto;margin:8px 0 14px;
+  padding:9px 11px;border-radius:9px;
+  background:var(--panel2);border:1px solid var(--line);
+  font-size:12.5px;line-height:1.7;color:var(--sub);white-space:pre-wrap;
+}
