@@ -75,6 +75,10 @@
     fold.id = 'matFold';
     fold.title = '折叠/展开';
     head.appendChild(fold);
+    const del = el('button', 'mat-del', '×');
+    del.id = 'matDel';
+    del.title = '删除素材';
+    head.appendChild(del);
     box.appendChild(head);
 
     const bodyWrap = el('div', 'mat-body-wrap');
@@ -120,7 +124,15 @@
   }
 
   function curMatHolder() {
-    return matOf(curUnit, curIdx);
+    /* 实时从当前书里取，避免 render 后对象被替换导致读到旧引用 */
+    let u = curUnit;
+    try {
+      if (window.APP && APP.cur && curUnit) {
+        const fresh = (APP.cur.units || []).find(x => x.id === curUnit.id);
+        if (fresh) u = fresh;
+      }
+    } catch (e) {}
+    return matOf(u, curIdx);
   }
 
   /* ---------------- 显示 / 隐藏 ---------------- */
@@ -157,6 +169,48 @@
     const fold = box.querySelector('#matFold');
     fold.textContent = box.classList.contains('collapsed') ? '▸' : '▾';
     localStorage.setItem(OPEN_KEY + '_fold', box.classList.contains('collapsed') ? '1' : '0');
+  }
+
+  /* ---------------- 删除当前素材 ---------------- */
+  function deleteCurrent() {
+    const p = curMatHolder();
+    if (!p || !p.materials.length) { toast('没有可删除的素材'); return; }
+
+    const idx = p.matSel;
+    const m = p.materials[idx];
+    const preview = String(m && m.text || '').slice(0, 40).replace(/\n/g, ' ');
+
+    const host = document.createElement('div');
+    host.className = 'mat-confirm-back';
+    host.innerHTML =
+      '<div class="mat-confirm-card">'
+      + '<h2>删除素材' + (idx + 1) + '<button class="close">×</button></h2>'
+      + '<div class="hint">删除后无法恢复。</div>'
+      + '<div class="mat-preview">' + escHtml(preview) + (preview.length >= 40 ? '…' : '') + '</div>'
+      + '<div class="sheet-acts"><button class="ghost-btn" id="delNo">取消</button>'
+      + '<button class="primary-btn" id="delYes">确认删除</button></div>'
+      + '</div>';
+    document.body.appendChild(host);
+
+    const closeIt = () => host.remove();
+    host.querySelector('.close').onclick = closeIt;
+    host.querySelector('#delNo').onclick = closeIt;
+    host.onclick = (e) => { if (e.target === host) closeIt(); };
+    host.querySelector('#delYes').onclick = () => {
+      p.materials.splice(idx, 1);
+      p.matSel = Math.min(idx, p.materials.length - 1);
+      if (!p.materials.length) p.matSel = -1;
+      A.persist();
+      paint();
+      if (!p.materials.length) hide(true);
+      closeIt();
+      toast('已删除素材' + (idx + 1));
+    };
+  }
+
+  function escHtml(t) {
+    return String(t == null ? '' : t)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   /* ---------------- 版本切换 ---------------- */
@@ -234,6 +288,9 @@
 
     /* 折叠 */
     box.querySelector('#matFold').onclick = toggleFold;
+
+    /* 删除当前素材（二次确认） */
+    box.querySelector('#matDel').onclick = deleteCurrent;
 
     /* 版本切换 */
     box.querySelector('#matVer').onclick = switchVersion;
