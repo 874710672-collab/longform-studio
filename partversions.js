@@ -82,7 +82,7 @@
       return;
     }
 
-    part.versions.push({ text: incoming, at: Date.now(), note: note || '' });
+    part.versions.push({ text: incoming, at: Date.now(), note: note || '', manual: false });
     while (part.versions.length > MAX_KEEP) part.versions.shift();
 
     part.body = incoming;
