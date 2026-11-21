@@ -1014,3 +1014,78 @@ body.dock-hidden #stage,
 .it-tag i:hover{opacity:1;color:#ff9c9c}
 .it-add{display:flex;gap:6px;align-items:center;margin-top:4px}
 .it-add input{width:80px;padding:4px 8px;font-size:13px}
+
+/* ============ 构成要素素材悬浮框 ============ */
+.mat-float{
+  position:fixed;z-index:65;
+  width:493px;max-width:calc(100vw - 20px);
+  height:410px;max-height:calc(100vh - 100px);
+  display:flex;flex-direction:column;
+  background:rgba(28,27,33,.97);
+  border:1px solid rgba(255,171,94,.42);
+  border-radius:14px;
+  box-shadow:0 14px 44px rgba(0,0,0,.6);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  overflow:hidden;
+}
+.mat-float.collapsed{height:auto!important;min-height:0}
+.mat-float.collapsed .mat-body-wrap{display:none}
+.mat-head{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 10px;cursor:grab;flex:0 0 auto;
+  background:rgba(255,171,94,.10);
+  border-bottom:1px solid rgba(255,171,94,.22);
+}
+.mat-float.dragging .mat-head{cursor:grabbing}
+.mat-grip{color:#ffab5e;font-size:12px;opacity:.8}
+.mat-title{
+  flex:1;font-size:12.5px;font-weight:600;color:#ffc993;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.mat-ver{
+  font-size:10.5px;padding:2px 7px;border-radius:6px;
+  background:rgba(255,171,94,.16);color:#ffab5e;
+  border:1px solid rgba(255,171,94,.26);white-space:nowrap;
+}
+.mat-ver.multi{cursor:pointer}
+.mat-ver.multi:hover{background:rgba(255,171,94,.28)}
+.mat-fold{
+  width:22px;height:22px;border-radius:6px;flex:0 0 auto;
+  background:transparent;border:none;color:#ffab5e;font-size:12px;
+}
+.mat-body-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.mat-ta{
+  flex:1 1 auto;width:100%;box-sizing:border-box;
+  background:transparent;border:none;resize:none;
+  padding:10px 12px;font-size:13px;line-height:1.75;
+  color:var(--txt);font-family:inherit;
+}
+.mat-ta:focus{outline:none}
+.mat-ta:disabled{opacity:.5}
+.mat-foot{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-top:1px solid rgba(255,171,94,.16);
+  flex:0 0 auto;
+}
+.mat-tip{font-size:10.5px;color:var(--sub);flex:1}
+.mat-menu{
+  position:absolute;right:10px;top:38px;z-index:10;
+  min-width:130px;padding:5px;border-radius:10px;
+  background:rgba(34,33,40,.99);border:1px solid rgba(255,171,94,.3);
+  box-shadow:0 10px 28px rgba(0,0,0,.55);
+  display:flex;flex-direction:column;gap:3px;
+}
+.mat-menu-item{
+  text-align:left;padding:6px 9px;border-radius:7px;
+  background:transparent;border:none;color:var(--txt);font-size:12px;
+}
+.mat-menu-item:hover{background:rgba(255,171,94,.14)}
+.mat-menu-item.on{background:rgba(255,171,94,.22);color:#ffc993}
+
+/* 稿件标签上的「人工 / AI」标记 */
+.tag-src{
+  font-size:9.5px;padding:1px 5px;border-radius:5px;margin-left:5px;
+  background:rgba(255,171,94,.16);color:#ffab5e;
+  border:1px solid rgba(255,171,94,.3);font-weight:400;
+  vertical-align:middle;
+}
