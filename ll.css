@@ -1121,3 +1121,53 @@ body.dock-hidden #stage,
   background:var(--panel2);border:1px solid var(--line);
   font-size:12.5px;line-height:1.7;color:var(--sub);white-space:pre-wrap;
 }
+
+/* ============ 草稿本悬浮窗 ============ */
+.draft-float{
+  position:fixed;z-index:66;
+  width:493px;max-width:calc(100vw - 20px);
+  height:410px;max-height:calc(100vh - 90px);
+  display:flex;flex-direction:column;
+  background:rgba(28,27,33,.97);
+  border:1px solid rgba(120,200,255,.42);
+  border-radius:14px;
+  box-shadow:0 14px 44px rgba(0,0,0,.6);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  overflow:hidden;
+}
+.draft-float.collapsed{height:auto!important}
+.draft-float.collapsed .draft-body-wrap{display:none}
+.draft-head{
+  display:flex;align-items:center;gap:7px;
+  padding:8px 10px;cursor:grab;flex:0 0 auto;
+  background:rgba(120,200,255,.10);
+  border-bottom:1px solid rgba(120,200,255,.22);
+}
+.draft-float.dragging .draft-head{cursor:grabbing}
+.draft-grip{color:#78c8ff;font-size:12px;opacity:.8}
+.draft-title{font-size:12.5px;font-weight:600;color:#a9dcff;flex:1}
+.draft-count{font-size:10.5px;color:#78c8ff;opacity:.85}
+.draft-fold{
+  width:22px;height:22px;border-radius:6px;flex:0 0 auto;
+  background:transparent;border:none;color:#78c8ff;font-size:12px;
+}
+.draft-clear{
+  font-size:10.5px;padding:2px 7px;border-radius:6px;
+  background:transparent;border:1px solid rgba(255,140,140,.3);
+  color:#ff9c9c;
+}
+.draft-clear:hover{background:rgba(255,120,120,.14)}
+.draft-body-wrap{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.draft-ta{
+  flex:1 1 auto;width:100%;box-sizing:border-box;
+  background:transparent;border:none;resize:none;
+  padding:10px 12px;font-size:13px;line-height:1.8;
+  color:var(--txt);font-family:inherit;
+}
+.draft-ta:focus{outline:none}
+.draft-foot{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 10px;border-top:1px solid rgba(120,200,255,.16);
+  flex:0 0 auto;
+}
+.draft-tip{font-size:10.5px;color:var(--sub);flex:1}
