@@ -172,6 +172,7 @@
     /* 每稿独立单元列表（兼容老数据） */
     if (window.DRAFTS) DRAFTS.migrate(b);
     if (typeof b.fsSeq !== 'number') b.fsSeq = b.foreshadow.length;
+    if (typeof b.draftPad !== 'string') b.draftPad = '';
     if (!b.level) b.level = 'book';
     if (!b.bookStep) b.bookStep = 'book';
     if (!b.steps || typeof b.steps !== 'object') b.steps = {};
