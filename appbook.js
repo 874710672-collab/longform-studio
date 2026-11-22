@@ -147,6 +147,20 @@
     const plan = LEngine.sizePlan(b);
     let html = `<h2>编辑第 ${st.num} 级<button class="close">×</button></h2>`;
     html += `<div class="hint">三级固定不变，这里只能改内容。卷号范围要和总卷数（${plan.phases} 卷）对得上。</div>`;
+
+    /* AI 辅助：只补这一张卡片 */
+    html += `<div class="ai-fill-box">
+      <div class="af-head">
+        <span class="af-title">✦ 让 AI 补全这一级</span>
+        <span class="af-hint">参照当前全书总纲；不会动其他两级</span>
+      </div>
+      <textarea id="stRough" rows="2" placeholder="例：这一级主角要在镇上立足，但被同行排挤，最后靠一桩旧账翻身">${esc(st.rough || '')}</textarea>
+      <div class="af-acts">
+        <button class="primary-btn mini" id="stFill">✦ 补全</button>
+        <span class="af-status" id="stStatus"></span>
+      </div>
+    </div>`;
+
     html += `<div class="field"><label>级名</label><input id="stName" value="${esc(st.name || '')}"></div>`;
     html += `<div class="field"><label>本级目标</label><textarea id="stGoal" rows="2">${esc(st.goal || '')}</textarea></div>`;
     html += `<div class="field"><label>本级主要矛盾</label><textarea id="stConflict" rows="2">${esc(st.conflict || '')}</textarea></div>`;
@@ -157,6 +171,50 @@
     html += `<div class="sheet-acts"><button class="primary-btn" id="saveSt">保存</button></div>`;
 
     A.sheet(html, (root) => {
+      /* ---- AI 补全（只补这一级） ---- */
+      const fillBtn = root.querySelector('#stFill');
+      const status = root.querySelector('#stStatus');
+      const roughIn = root.querySelector('#stRough');
+
+      fillBtn.onclick = async () => {
+        const rough = roughIn.value.trim();
+        /* 把表单当前内容先写进临时对象，作为"已写内容"给 AI 参考 */
+        const mine = {
+          num: st.num,
+          name: root.querySelector('#stName').value.trim(),
+          goal: root.querySelector('#stGoal').value.trim(),
+          conflict: root.querySelector('#stConflict').value.trim(),
+          fromVol: parseInt(root.querySelector('#stFrom').value, 10) || st.fromVol || 0,
+          toVol: parseInt(root.querySelector('#stTo').value, 10) || st.toVol || 0
+        };
+        const i = (b.stages || []).findIndex(x => x.num === st.num);
+        const backup = i >= 0 ? Object.assign({}, b.stages[i]) : null;
+        if (!b.stages) b.stages = [];
+        if (i >= 0) b.stages[i] = Object.assign({}, mine); else b.stages.push(Object.assign({}, mine));
+
+        fillBtn.disabled = true;
+        status.textContent = '生成中…';
+        try {
+          const r = await LEngine.genStageFill(b, st.num, rough, () => {});
+          const p = LEngine.parseStageText(r.text, st.num);
+          /* 回填表单，等用户点保存才落库 */
+          if (p.name) root.querySelector('#stName').value = p.name;
+          else if (p.name === '' && /第[一二三]级\s*[｜|]/.test(r.text)) root.querySelector('#stName').value = '';
+          if (p.goal) root.querySelector('#stGoal').value = p.goal;
+          if (p.conflict) root.querySelector('#stConflict').value = p.conflict;
+          st.rough = rough;
+          if (i >= 0 && b.stages[i]) b.stages[i].rough = rough;
+          status.textContent = '已补全，检查后点保存';
+        } catch (e) {
+          /* 失败要还原，别把临时写入的内容留在库里 */
+          if (i >= 0 && backup) b.stages[i] = backup;
+          else if (i < 0 && b.stages) b.stages = b.stages.filter(x => x.num !== st.num);
+          if (e.name !== 'AbortError') status.textContent = '失败：' + e.message;
+          else status.textContent = '已取消';
+        }
+        fillBtn.disabled = false;
+      };
+
       root.querySelector('#saveSt').onclick = () => {
         st.name = root.querySelector('#stName').value.trim() || st.name;
         st.goal = root.querySelector('#stGoal').value.trim();
@@ -165,14 +223,15 @@
         st.toVol = parseInt(root.querySelector('#stTo').value, 10) || plan.phases;
         /* 【卡片为准】直接写回 b.stages，不再从文本重新解析（否则会覆盖掉本次修改） */
         if (!b.stages) b.stages = [];
-        const i = b.stages.findIndex(x => x.num === st.num);
-        if (i >= 0) b.stages[i] = st; else b.stages.push(st);
+        const k = b.stages.findIndex(x => x.num === st.num);
+        if (k >= 0) b.stages[k] = st; else b.stages.push(st);
         Books.pushHistory(b, '编辑三级推进', '第' + st.num + '级 ' + st.name);
         A.persist(); A.closeSheet(); A.render();
         A.toast('已保存');
       };
     });
   }
+
 
   function renderSpineStep(b, s) {
     /* 简报 */
