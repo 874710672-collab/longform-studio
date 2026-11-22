@@ -1558,6 +1558,67 @@
     return { text: String(out || '').trim(), cell, prev, next, idx };
   }
 
+  /* 单级 AI 补全：参照格子的做法，只补这一张卡片 */
+  async function genStageFill(book, num, rough, onDelta, signal) {
+    const P = LP.get();
+    const plan = sizePlan(book);
+    const stages = book.stages || [];
+    const cur = stages.find(x => x.num === num) || { num, name: '', goal: '', conflict: '', fromVol: 0, toVol: 0 };
+
+    /* 覆盖卷数：没填就按现在这三级均分 */
+    let fromVol = cur.fromVol, toVol = cur.toVol;
+    if (!fromVol || !toVol) {
+      const per = Math.max(1, Math.ceil(plan.phases / 3));
+      fromVol = Math.min(plan.phases, (num - 1) * per + 1);
+      toVol = Math.min(plan.phases, num * per);
+    }
+
+    /* 已有的内容（作者可能改了一半） */
+    const bits = [];
+    if (cur.name) bits.push('已写的级名：' + cur.name);
+    if (cur.goal) bits.push('已写的目标：' + cur.goal);
+    if (cur.conflict) bits.push('已写的矛盾：' + cur.conflict);
+    const curFill = bits.length
+      ? '\n（作者已经写了下面这些，请在此基础上补全，不要推倒重来）\n' + bits.join('\n')
+      : '';
+
+    const siblings = stages.filter(x => x.num !== num && (x.name || x.goal))
+      .map(x => `第${x.num}级｜${x.name || '（未定）'}\n  目标：${x.goal || '—'}\n  矛盾：${x.conflict || '—'}`)
+      .join('\n') || '（其他两级还没写）';
+
+    const user = LP.fill(P.stageFill, {
+      num,
+      book: bookDoc(book, 'book') || '（还没有全书总纲）',
+      siblings,
+      curFill,
+      rough: (rough || '').trim() || '（作者没写大意，请根据总纲自行设计）',
+      fromVol, toVol,
+      feedback: feedbackOf({ feedback: '' })
+    });
+
+    const out = await API.chat({ messages: API.buildMessages(P.system, user), onDelta, signal });
+    return { text: String(out || '').trim(), num, fromVol, toVol };
+  }
+
+  /* 解析单级返回文本 */
+  function parseStageText(text, fallbackNum) {
+    const t = String(text || '');
+    const head = t.match(/第\s*([一二三1-3])\s*级\s*[｜|]\s*([^\n]*)/);
+    const numMap = { '一': 1, '二': 2, '三': 3 };
+    const num = head ? (numMap[head[1]] || parseInt(head[1], 10)) : fallbackNum;
+    const name = head ? head[2].trim().replace(/（已调整）/, '') : '';
+    const grab = (label) => {
+      const m = t.match(new RegExp(label + '\\s*[：:]\\s*([^\\n]+)'));
+      return m ? m[1].trim() : '';
+    };
+    return {
+      num,
+      name,
+      goal: grab('目标'),
+      conflict: grab('矛盾')
+    };
+  }
+
   /* 把 AI 返回的单格文本解析成字段 */
   function parseCellText(text, fallbackStep) {
     const t = String(text || '');
@@ -1788,7 +1849,7 @@
     progressAuditData, genAudit, parseStages, sizePlan, parseVolumes, volumePlan, genVolumes, genOneVolume, genSpineRange, autoPhases, normalizePhases, mergeCells, detectRestart,
     renumber, sortByOldIdx, markStale, clearStale, buildUnitsFromSpine, totalWords,
     syncUnitsWithSpine, unitHasContent,
-    genCellFill, parseCellText, cellText,
+    genStageFill, parseStageText, genCellFill, parseCellText, cellText,
     cellOfUnit: (book, u) => GRID.cellOf(book, u),
   };
 })();
