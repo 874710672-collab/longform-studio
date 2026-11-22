@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v86-single-manual';
+window.APP_VERSION = 'v87-draftpad';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
@@ -220,6 +220,9 @@ window.APP_VERSION = 'v86-single-manual';
     $('#dock').classList.toggle('empty', !cur || view === 'home' || view === 'units' || view === 'facts' || view === 'audit' || view === 'backup' || view === 'grid' || view === 'chapter');
     stage.innerHTML = '';
     window.__curView = view;   /* 记录本次渲染的视图，供下次判断 */
+
+    /* 草稿本跟随当前书刷新内容 */
+    if (window.DRAFTFLOAT && DRAFTFLOAT.sync) DRAFTFLOAT.sync();
 
     /* 素材悬浮框只在「单元 · 分节正文」环节显示，其余一律收起
        （用 hide 而不是 detach：detach 会清空上下文，切回来时 attach 才重新绑定） */
@@ -788,6 +791,10 @@ window.APP_VERSION = 'v86-single-manual';
     if (!cur) return;
     view = 'units'; render();
   };
+  $('#btnDraft').onclick = () => {
+    if (window.DRAFTFLOAT) DRAFTFLOAT.toggle();
+  };
+
   $('#btnBook').onclick = () => {
     if (busy) { toast('正在生成，先等一下'); return; }
     if (!cur) return;
