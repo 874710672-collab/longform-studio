@@ -22,7 +22,10 @@
   let curBook = null, curUnit = null, curIdx = 0;
   /* 当前查看的是「素材」还是「AI稿」 */
   let viewMode = 'mat';
+  /* 两个模式各自记住上次停留的版本（切换回来时还原） */
+  let matSelMemo = 0;
   let aiSel = 0;
+  let aiVisited = false;   /* 是否切过 AI 模式（第一次默认显示最新一版） */
 
   /* ---------------- 存储 ---------------- */
   /* 素材存在 part.materials = [{ text, at }]，不放进 versions，避免和正文稿混在一起 */
@@ -115,6 +118,8 @@
     const ta = box.querySelector('#matTa');
     const title = box.querySelector('#matTitle');
     const ver = box.querySelector('#matVer');
+    /* 素材模式下同步"上次停留"的记忆 */
+    if (p && viewMode !== 'ai' && p.matSel >= 0) matSelMemo = p.matSel;
 
     if (!p || !p.materials.length) {
       ta.value = '';
@@ -231,6 +236,7 @@
       b.onclick = () => {
         aiSel = k;
         viewMode = 'ai';
+        aiVisited = true;
         paint();
         menu.remove();
         toast('已切到 AI稿' + (k + 1));
@@ -298,6 +304,7 @@
         '素材' + (i + 1) + ' · ' + fmtTime(m.at));
       b.onclick = () => {
         p.matSel = i;
+        matSelMemo = i;
         A.persist();
         paint();
         menu.remove();
@@ -372,6 +379,12 @@
     box.querySelector('#matVer').onclick = () => {
       if (viewMode === 'ai') {
         viewMode = 'mat';
+        /* 还原上次停留的素材版本 */
+        const p = curMatHolder();
+        if (p && p.materials.length) {
+          if (!(matSelMemo >= 0 && matSelMemo < p.materials.length)) matSelMemo = p.materials.length - 1;
+          p.matSel = matSelMemo;
+        }
         paint();
         return;
       }
@@ -384,7 +397,9 @@
       if (!list.length) { toast('还没有 AI 稿'); return; }
       if (viewMode !== 'ai') {
         viewMode = 'ai';
-        aiSel = list.length - 1;
+        /* 第一次进来默认最新一版；之后还原上次停留的那一版（越界则回最后一版） */
+        if (!aiVisited || !(aiSel >= 0 && aiSel < list.length)) aiSel = list.length - 1;
+        aiVisited = true;
         paint();
         return;
       }
@@ -425,7 +440,14 @@
      只在「分节正文」环节调用；离开该环节必须调用 detach() */
   function attach(book, unit, partIdx) {
     curBook = book; curUnit = unit; curIdx = partIdx || 0;
-    viewMode = 'mat'; aiSel = 0;
+    /* 切换单元/节才重置；同一节重渲染保留用户上次停留的版本 */
+    if (attach._key !== (unit && unit.id) + ':' + curIdx) {
+      attach._key = (unit && unit.id) + ':' + curIdx;
+      viewMode = 'mat';
+      aiSel = 0;
+      matSelMemo = 0;
+      aiVisited = false;
+    }
     if (!box) build();
     bindOnce();
     paint();
