@@ -474,7 +474,7 @@
       const n = p.materials.length;
 
       /* 多出一份空白手写稿，标为「人工」 */
-      ensureManualDraft(book, unit, curIdx);
+      if (LEngine.ensureManualDraft) LEngine.ensureManualDraft(book, unit, curIdx);
 
       A.setBusy(null);
       localStorage.setItem(OPEN_KEY, '1');
@@ -499,44 +499,7 @@
   }
 
   /* 新建一版空白手写稿（追加到 versions 末尾，标 manual） */
-  function ensureManualDraft(book, unit, idx) {
-    const d = unit.steps && unit.steps.draft;
-    if (!d) return;
-    const parts = d.parts || (d.parts = []);
-    if (!parts[idx]) parts[idx] = { title: '', body: '', versions: [], sel: -1 };
-    const p = parts[idx];
-    if (!Array.isArray(p.versions)) p.versions = [];
 
-    /* ① 如果当前选中的就是人工稿 → 什么都不做，继续用它
-          （你在里面写的字原样保留，不产生新稿） */
-    const cur = (p.sel >= 0) ? p.versions[p.sel] : null;
-    if (cur && cur.manual) {
-      /* 把 body 同步回这一版，确保内容不丢 */
-      if (String(p.body || '').trim()) {
-        cur.text = p.body;
-        cur.at = Date.now();
-      }
-      return;
-    }
-
-    /* ② 已有别的「人工稿」（不管空不空）→ 切过去，不再新建 */
-    const existManual = p.versions.findIndex(v => v.manual);
-    if (existManual >= 0) {
-      p.sel = existManual;
-      p.body = p.versions[existManual].text || '';
-      return;
-    }
-
-    /* ③ 一版人工稿都没有 → 把当前 AI 稿入册后，新建唯一的一份人工稿 */
-    const snap = p.body || '';
-    if (snap.trim() && !p.versions.some(v => (v.text || '') === snap)) {
-      p.versions.push({ text: snap, at: Date.now(), note: 'AI 生成', manual: false });
-    }
-
-    p.versions.push({ text: '', at: Date.now(), note: '人工', manual: true, blank: true });
-    p.sel = p.versions.length - 1;
-    p.body = '';
-  }
 
   window.MATFLOAT = {
     show, hide, isShowing, attach, detach, generate, paint,
