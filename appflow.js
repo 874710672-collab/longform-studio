@@ -41,6 +41,9 @@
     d.partIdx = idx;
     const busy = A.busy;
 
+    /* 保证这一节永远有且只有 1 份「人工」稿（不改变已有内容与当前选择） */
+    try { if (LEngine.ensureManualDraft) LEngine.ensureManualDraft(b, u, idx); } catch (e) {}
+
     /* 素材悬浮框跟随当前单元/节切换 */
     if (window.MATFLOAT) {
       setTimeout(() => { try { MATFLOAT.attach(b, u, idx); } catch (e) {} }, 0);
@@ -98,7 +101,7 @@
         if (p2.sel >= 0 && p2.versions[p2.sel]) {
           p2.versions[p2.sel].text = txt;
           p2.versions[p2.sel].at = Date.now();
-          p2.versions[p2.sel].manual = true;
+          /* 标签只在创建时确定，编辑不改变「AI / 人工」 */
           p2.versions[p2.sel].blank = false;
         } else if (p2.versions.length === 0 && txt.trim()) {
           p2.versions.push({ text: txt, at: Date.now(), note: '手动编辑', manual: true });
@@ -350,8 +353,6 @@
         /* 当前有明确指向：就地更新那一版 */
         p.versions[p.sel].text = txt;
         p.versions[p.sel].at = Date.now();
-        /* 手动改过 → 标记为人工，标签会显示「人工」 */
-        p.versions[p.sel].manual = true;
       } else if (p.versions.length === 0) {
         /* 一个版本都没有：建一条 */
         p.versions.push({ text: txt, at: Date.now(), note: '手动编辑', manual: true });
