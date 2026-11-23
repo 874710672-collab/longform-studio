@@ -141,12 +141,14 @@
     ver.textContent = '素材 ' + (p.matSel + 1) + '/' + p.materials.length;
     ver.classList.toggle('multi', p.materials.length > 1);
     ver.classList.toggle('off', viewMode === 'ai');
+    ver.classList.toggle('on', viewMode !== 'ai');
 
     const aiBtn = box.querySelector('#matAi');
     if (aiBtn) {
       aiBtn.textContent = 'AI稿 ' + (aiTotal ? (aiCur >= 0 ? aiCur + 1 : aiSel + 1) : 0) + '/' + aiTotal;
       aiBtn.classList.toggle('multi', aiTotal > 1);
       aiBtn.classList.toggle('off', viewMode !== 'ai');
+      aiBtn.classList.toggle('on', viewMode === 'ai');
       aiBtn.disabled = aiTotal === 0;
     }
   }
