@@ -1,5 +1,5 @@
 /* app.js — 长篇工坊界面与流程控制 */
-window.APP_VERSION = 'v88-stage-ai';
+window.APP_VERSION = 'v89-live-edit';
 (function () {
   const $ = (s, r) => (r || document).querySelector(s);
   const el = (tag, cls, txt) => {
