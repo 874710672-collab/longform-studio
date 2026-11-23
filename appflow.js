@@ -67,22 +67,95 @@
       box.appendChild(partVersionBar(b, u, idx, curPart));
     }
 
-    const pre = el('div', 'doc');
     const isStreaming = busy && busy.mode === 'unit-draft' && busy.partIdx === idx;
-    pre.textContent = curPart ? PARTVER.currentBody(curPart) : (isStreaming ? '' : '点底部「写这一节」生成。');
-    if (isStreaming) pre.classList.add('streaming');
-    box.appendChild(pre);
-    if (curPart && !isStreaming) {
+
+    if (isStreaming) {
+      /* 流式生成时仍然用只读区，避免用户改动和流冲突 */
+      const pre = el('div', 'doc streaming');
+      pre.textContent = '';
+      A.app.streamEl = pre;
+      box.appendChild(pre);
+    } else {
+      /* 常驻可编辑：看起来像正文，点进去就能改 */
+      const ta = el('textarea');
+      ta.className = 'doc-live';
+      ta.value = curPart ? PARTVER.currentBody(curPart) : '';
+      ta.placeholder = curPart ? '直接点这里写，改动自动保存' : '点底部「写这一节」生成，或直接在这里手写';
+      /* 自适应高度 */
+      const fit = () => {
+        ta.style.height = 'auto';
+        ta.style.height = Math.max(280, ta.scrollHeight + 6) + 'px';
+      };
+      box.appendChild(ta);
+      requestAnimationFrame(fit);
+
+      let timer = null;
+      const save = () => {
+        const txt = ta.value;
+        const d2 = u.steps.draft;
+        const parts = d2.parts || (d2.parts = []);
+        if (!parts[idx]) parts[idx] = { title: '', body: '', versions: [], sel: -1 };
+        const p2 = parts[idx];
+        if (p2.body === txt) return;
+        p2.body = txt;
+        PARTVER.ensure(p2);
+        if (p2.sel >= 0 && p2.versions[p2.sel]) {
+          p2.versions[p2.sel].text = txt;
+          p2.versions[p2.sel].at = Date.now();
+          p2.versions[p2.sel].manual = true;
+          p2.versions[p2.sel].blank = false;
+        } else if (p2.versions.length === 0 && txt.trim()) {
+          p2.versions.push({ text: txt, at: Date.now(), note: '手动编辑', manual: true });
+          p2.sel = 0;
+        }
+        A.persist();
+      };
+      /* 供切版本 / 生成前强制落盘 */
+      window.__flushPartEdit = () => { clearTimeout(timer); save(); };
+
+      ta.addEventListener('input', () => {
+        fit();
+        clearTimeout(timer);
+        timer = setTimeout(save, 600);
+      });
+      ta.addEventListener('blur', () => { clearTimeout(timer); save(); });
+
       const ops = el('div', 'doc-ops');
-      const b1 = el('button', 'mini', '手动编辑');
-      b1.onclick = () => editPart(b, u, idx, pre);
       const b2 = el('button', 'mini', '复制');
-      b2.onclick = () => BOOKUI.copyText(curPart.body);
+      b2.onclick = () => {
+        const t = PARTVER.currentBody((u.steps.draft.parts || [])[idx] || {});
+        if (!t.trim()) { toast('这一节还是空的'); return; }
+        BOOKUI.copyText(t);
+        toast('已复制 ' + t.length + ' 字');
+      };
       const b3 = el('button', 'mini', '✧ 校验');
-      b3.onclick = () => showIssues(b, u, curPart.body);
-      ops.appendChild(b1); ops.appendChild(b2); ops.appendChild(b3);
+      b3.onclick = () => {
+        const p3 = (u.steps.draft.parts || [])[idx];
+        showIssues(b, u, p3 ? p3.body : '');
+      };
+      ops.appendChild(b2); ops.appendChild(b3);
       box.appendChild(ops);
-      box.appendChild(el('div', 'words', '本节 ' + LEngine.cw(curPart.body) + ' 字 · 目标 ' + ((plan[idx] && plan[idx].words) || '—')));
+
+      const wEl = el('div', 'words', '');
+      const updW = () => {
+        const target = (plan[idx] && plan[idx].words) || 0;
+        wEl.textContent = '本节 ' + LEngine.cw(ta.value) + ' 字' + (target ? ' · 目标 ' + target : '') + ' · 自动保存';
+      };
+      updW();
+      ta.addEventListener('input', updW);
+      box.appendChild(wEl);
+
+      /* 首存：没有任何版本时，写成空的人工稿，保证能切版 */
+      if (!curPart) {
+        const d3 = u.steps.draft;
+        const ps = d3.parts || (d3.parts = []);
+        if (!ps[idx]) ps[idx] = { title: '', body: '', versions: [], sel: -1 };
+        PARTVER.ensure(ps[idx]);
+        if (ps[idx].versions.length === 0) {
+          ps[idx].versions.push({ text: '', at: Date.now(), note: '人工', manual: true, blank: true });
+          ps[idx].sel = 0;
+        }
+      }
       if (curPart.issues && curPart.issues.length) {
         const ib = el('div', 'issue-list');
         curPart.issues.forEach(i => {
@@ -146,8 +219,6 @@
     }
     right.appendChild(listBox);
     right.appendChild(BOOKUI.feedbackCard(d, 'draft'));
-
-    A.app.streamEl = pre;
   }
 
   /* 某一节的版本切换条 */
@@ -174,6 +245,8 @@
       t.title = (v.note ? v.note + ' · ' : '') + new Date(v.at || Date.now()).toLocaleString('zh-CN');
       t.onclick = () => {
         if (part.sel === i) return;
+        /* 先把编辑框里没存的内容落盘，再切版本 */
+        if (window.__flushPartEdit) { try { window.__flushPartEdit(); } catch (e) {} }
         PARTVER.pick(part, i);
         A.persist(); A.render();
         toast('已切到稿 ' + (i + 1));
@@ -413,6 +486,8 @@
 
   /* ---- 单节 ---- */
   async function genOnePart(b, u, idx) {
+    /* 先把编辑框里没存的内容落盘，避免被新生成的内容挤掉 */
+    if (window.__flushPartEdit) { try { window.__flushPartEdit(); } catch (e) {} }
     const d = u.steps.draft;
     const ctrl = new AbortController();
     A.setBusy({ ctrl, label: '正在写第' + (idx + 1) + '节', text: '', mode: 'unit-draft', partIdx: idx });
@@ -491,6 +566,7 @@
 
   /* ---- 整篇润色 ---- */
   async function polishUnit(b, u) {
+    if (window.__flushPartEdit) { try { window.__flushPartEdit(); } catch (e) {} }
     /* 已有内容时提示：润色会改写文字 */
     const ps = u.steps.polish;
     const hasText = ps && ps.versions && ps.versions.length && (ps.versions[ps.sel] || {}).text;
