@@ -1558,6 +1558,49 @@
     return { text: String(out || '').trim(), cell, prev, next, idx };
   }
 
+  /* 保证某一节至少有且只有 1 份「人工」稿；已存在就复用，不改动已有内容 */
+  function ensureManualDraft(book, unit, idx) {
+    const d = unit.steps && unit.steps.draft;
+    if (!d) return;
+    const parts = d.parts || (d.parts = []);
+    if (!parts[idx]) parts[idx] = { title: '', body: '', versions: [], sel: -1 };
+    const p = parts[idx];
+    if (!Array.isArray(p.versions)) p.versions = [];
+
+    /* ① 如果当前选中的就是人工稿 → 什么都不做，继续用它
+          （你在里面写的字原样保留，不产生新稿） */
+    const cur = (p.sel >= 0) ? p.versions[p.sel] : null;
+    if (cur && cur.manual) {
+      /* 把 body 同步回这一版，确保内容不丢 */
+      if (String(p.body || '').trim()) {
+        cur.text = p.body;
+        cur.at = Date.now();
+      }
+      return;
+    }
+
+    /* ② 已经有「人工稿」了 → 不新建，也不抢占当前选中
+          （进入页面时不能把用户正在看的 AI 稿强行切走） */
+    const existManual = p.versions.findIndex(v => v.manual);
+    if (existManual >= 0) {
+      /* 若当前也有个有效选中，保持不动 */
+      if (p.sel >= 0 && p.versions[p.sel]) return;
+      /* 否则指向人工稿 */
+      p.sel = existManual;
+      p.body = p.versions[existManual].text || '';
+      return;
+    }
+
+    /* ③ 一版人工稿都没有 → 把当前 AI 稿入册后，新建唯一的一份人工稿 */
+    const snap = p.body || '';
+    if (snap.trim() && !p.versions.some(v => (v.text || '') === snap)) {
+      p.versions.push({ text: snap, at: Date.now(), note: 'AI 生成', manual: false });
+    }
+
+    p.versions.push({ text: '', at: Date.now(), note: '人工', manual: true, blank: true });
+    p.sel = p.versions.length - 1;
+    p.body = '';
+  }
   /* 单级 AI 补全：参照格子的做法，只补这一张卡片 */
   async function genStageFill(book, num, rough, onDelta, signal) {
     const P = LP.get();
@@ -1842,7 +1885,7 @@
 
   window.LEngine = {
     cw, briefText, docOf, bookDoc, unitDoc, splitParts, outlinePlan,
-    genPartElements, factsBlock, itemsBlockFor, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
+    ensureManualDraft, genPartElements, factsBlock, itemsBlockFor, fsBlock, spineAtBlock, prevBlock, prevUnitOf, readerKnowBlock, tierOf, feedbackOf,
     dueForeshadows, foreshadowOutlineRule, draftFsRule, outlineFsPlan,
     genBookStep, genUnitStep, genPart, autoDraft, joinDraft, splitForPolish, polishInChunks,
     parseCast, parseSpine, parseRelay, applyRelay, parseNewPeople, parseNewWorldRules, fuzzyMatchForeshadow, matchForeshadow, extractFsIds,
