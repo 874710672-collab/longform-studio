@@ -1206,3 +1206,23 @@ body.dock-hidden #stage,
     overflow:hidden;
   }
 }
+
+/* 素材框：AI稿切换按钮 */
+.mat-ai{
+  font-size:10.5px;padding:2px 7px;border-radius:6px;
+  background:rgba(120,200,255,.10);color:#9fd6ff;
+  border:1px solid rgba(120,200,255,.26);white-space:nowrap;
+}
+.mat-ai.multi{cursor:pointer}
+.mat-ai.multi:hover{background:rgba(120,200,255,.22)}
+.mat-ai.off{
+  background:rgba(120,200,255,.22);
+  border-color:rgba(120,200,255,.5);
+  color:#cbe9ff;
+}
+.mat-ai:disabled{opacity:.38;cursor:default}
+.mat-ver.off{
+  background:rgba(255,255,255,.05);
+  border-color:rgba(255,255,255,.12);
+  color:var(--sub);
+}
