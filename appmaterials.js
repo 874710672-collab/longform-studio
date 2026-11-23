@@ -351,6 +351,8 @@
   /* ---------------- 对外：生成一版要素 ---------------- */
   async function generate() {
     if (A.busy) { toast('正在生成，先等一下'); return; }
+    /* 先把正文编辑框里没存的内容落盘 */
+    if (window.__flushPartEdit) { try { window.__flushPartEdit(); } catch (e) {} }
     const book = curBook || A.cur;
     const unit = curUnit || A.curUnit();
     if (!book || !unit) { toast('没有打开的单元'); return; }
