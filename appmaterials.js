@@ -20,6 +20,9 @@
 
   /* 当前单元/节的上下文 */
   let curBook = null, curUnit = null, curIdx = 0;
+  /* 当前查看的是「素材」还是「AI稿」 */
+  let viewMode = 'mat';
+  let aiSel = 0;
 
   /* ---------------- 存储 ---------------- */
   /* 素材存在 part.materials = [{ text, at }]，不放进 versions，避免和正文稿混在一起 */
@@ -71,6 +74,10 @@
     const ver = el('button', 'mat-ver', '素材 1/1');
     ver.id = 'matVer';
     head.appendChild(ver);
+    const aiBtn = el('button', 'mat-ai', 'AI稿 0/0');
+    aiBtn.id = 'matAi';
+    aiBtn.title = '切换查看 AI 生成的稿子';
+    head.appendChild(aiBtn);
     const fold = el('button', 'mat-fold', '▾');
     fold.id = 'matFold';
     fold.title = '折叠/展开';
@@ -117,10 +124,46 @@
       return;
     }
     ta.disabled = false;
-    ta.value = p.materials[p.matSel] ? p.materials[p.matSel].text : '';
-    title.textContent = '构成要素 · 素材' + (p.matSel + 1);
+    const aiIdx = aiList();
+    const aiTotal = aiIdx.length;
+    const aiCur = aiIdx.indexOf(aiSel);
+
+    if (viewMode === 'ai' && aiTotal) {
+      /* 显示 AI 稿 */
+      ta.value = aiText(aiIdx[aiSel]) || '';
+      ta.readOnly = true;
+      title.textContent = '构成要素 · AI稿' + (aiSel + 1);
+    } else {
+      ta.value = p.materials[p.matSel] ? p.materials[p.matSel].text : '';
+      ta.readOnly = false;
+      title.textContent = '构成要素 · 素材' + (p.matSel + 1);
+    }
     ver.textContent = '素材 ' + (p.matSel + 1) + '/' + p.materials.length;
     ver.classList.toggle('multi', p.materials.length > 1);
+    ver.classList.toggle('off', viewMode === 'ai');
+
+    const aiBtn = box.querySelector('#matAi');
+    if (aiBtn) {
+      aiBtn.textContent = 'AI稿 ' + (aiTotal ? (aiCur >= 0 ? aiCur + 1 : aiSel + 1) : 0) + '/' + aiTotal;
+      aiBtn.classList.toggle('multi', aiTotal > 1);
+      aiBtn.classList.toggle('off', viewMode !== 'ai');
+      aiBtn.disabled = aiTotal === 0;
+    }
+  }
+
+  /* 这一节里所有 AI 稿的索引（versions 中非人工的） */
+  function aiList() {
+    const p = curMatHolder();
+    if (!p || !p.versions) return [];
+    const out = [];
+    p.versions.forEach((v, i) => {
+      if (!v.manual && String(v.text || '').trim()) out.push(i);
+    });
+    return out;
+  }
+  function aiText(i) {
+    const p = curMatHolder();
+    return (p && p.versions && p.versions[i]) ? p.versions[i].text : '';
   }
 
   function curMatHolder() {
@@ -169,6 +212,34 @@
     const fold = box.querySelector('#matFold');
     fold.textContent = box.classList.contains('collapsed') ? '▸' : '▾';
     localStorage.setItem(OPEN_KEY + '_fold', box.classList.contains('collapsed') ? '1' : '0');
+  }
+
+  /* AI 稿版本菜单 */
+  function openAiMenu(list) {
+    if (!box) return;
+    const old = box.querySelector('.mat-menu');
+    if (old) old.remove();
+
+    const p = curMatHolder();
+    const menu = el('div', 'mat-menu');
+    list.forEach((vi, k) => {
+      const v = p.versions[vi];
+      const b = el('button', 'mat-menu-item' + (k === aiSel ? ' on' : ''),
+        'AI稿' + (k + 1) + ' · ' + fmtTime(v.at));
+      b.onclick = () => {
+        aiSel = k;
+        viewMode = 'ai';
+        paint();
+        menu.remove();
+        toast('已切到 AI稿' + (k + 1));
+      };
+      menu.appendChild(b);
+    });
+    box.appendChild(menu);
+    const close = (e) => {
+      if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', close); }
+    };
+    setTimeout(() => document.addEventListener('click', close), 0);
   }
 
   /* ---------------- 删除当前素材 ---------------- */
@@ -289,11 +360,35 @@
     /* 折叠 */
     box.querySelector('#matFold').onclick = toggleFold;
 
-    /* 删除当前素材（二次确认） */
-    box.querySelector('#matDel').onclick = deleteCurrent;
+    /* 删除当前素材（二次确认）；AI 稿模式下不允许删 */
+    box.querySelector('#matDel').onclick = () => {
+      if (viewMode === 'ai') { toast('AI稿请到「稿 N」里管理'); return; }
+      deleteCurrent();
+    };
 
-    /* 版本切换 */
-    box.querySelector('#matVer').onclick = switchVersion;
+    /* 素材按钮：当前在 AI 稿模式就切回素材；否则弹版本菜单 */
+    box.querySelector('#matVer').onclick = () => {
+      if (viewMode === 'ai') {
+        viewMode = 'mat';
+        paint();
+        return;
+      }
+      switchVersion();
+    };
+
+    /* AI稿按钮：切到 AI 稿模式 / 弹 AI 版本菜单 */
+    box.querySelector('#matAi').onclick = () => {
+      const list = aiList();
+      if (!list.length) { toast('还没有 AI 稿'); return; }
+      if (viewMode !== 'ai') {
+        viewMode = 'ai';
+        aiSel = list.length - 1;
+        paint();
+        return;
+      }
+      if (list.length < 2) return;
+      openAiMenu(list);
+    };
 
     /* 复制 */
     box.querySelector('#matCopy').onclick = () => {
@@ -307,6 +402,7 @@
     /* 编辑即保存 */
     let timer = null;
     ta.addEventListener('input', () => {
+      if (viewMode === 'ai') return;   /* AI 稿只读 */
       clearTimeout(timer);
       timer = setTimeout(() => {
         const p = curMatHolder();
@@ -327,6 +423,7 @@
      只在「分节正文」环节调用；离开该环节必须调用 detach() */
   function attach(book, unit, partIdx) {
     curBook = book; curUnit = unit; curIdx = partIdx || 0;
+    viewMode = 'mat'; aiSel = 0;
     if (!box) build();
     bindOnce();
     paint();
