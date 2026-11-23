@@ -1171,3 +1171,27 @@ body.dock-hidden #stage,
   flex:0 0 auto;
 }
 .draft-tip{font-size:10.5px;color:var(--sub);flex:1}
+
+/* 分节正文：常驻可编辑（看起来像正文，点进去就能改） */
+.doc-live{
+  display:block;width:100%;box-sizing:border-box;
+  min-height:320px;
+  background:transparent;
+  border:none;
+  border-radius:10px;
+  padding:12px;
+  font-family:inherit;
+  font-size:14px;
+  line-height:1.9;
+  color:var(--txt);
+  resize:vertical;
+  overflow:hidden;
+  transition:background .15s;
+}
+.doc-live:hover{background:rgba(255,255,255,.02)}
+.doc-live:focus{
+  outline:none;
+  background:rgba(185,166,255,.05);
+  box-shadow:inset 0 0 0 1px rgba(185,166,255,.25);
+}
+.doc-live::placeholder{color:var(--sub);opacity:.7}
