@@ -81,13 +81,9 @@
       ta.className = 'doc-live';
       ta.value = curPart ? PARTVER.currentBody(curPart) : '';
       ta.placeholder = curPart ? '直接点这里写，改动自动保存' : '点底部「写这一节」生成，或直接在这里手写';
-      /* 自适应高度 */
-      const fit = () => {
-        ta.style.height = 'auto';
-        ta.style.height = Math.max(280, ta.scrollHeight + 6) + 'px';
-      };
       box.appendChild(ta);
-      requestAnimationFrame(fit);
+      /* 自适应高度：交给 AUTOFIT，避免塌缩导致整页跳动 */
+      if (window.AUTOFIT) AUTOFIT.attach(ta, { min: 320 });
 
       let timer = null;
       const save = () => {
@@ -114,7 +110,6 @@
       window.__flushPartEdit = () => { clearTimeout(timer); save(); };
 
       ta.addEventListener('input', () => {
-        fit();
         clearTimeout(timer);
         timer = setTimeout(save, 600);
       });
