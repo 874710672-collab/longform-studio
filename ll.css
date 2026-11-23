@@ -1176,6 +1176,7 @@ body.dock-hidden #stage,
 .doc-live{
   display:block;width:100%;box-sizing:border-box;
   min-height:320px;
+  overflow:hidden;
   background:transparent;
   border:none;
   border-radius:10px;
@@ -1195,3 +1196,13 @@ body.dock-hidden #stage,
   box-shadow:inset 0 0 0 1px rgba(185,166,255,.25);
 }
 .doc-live::placeholder{color:var(--sub);opacity:.7}
+
+/* iOS 18+ / 现代浏览器：让浏览器自己处理 textarea 高度，零 JS、零跳动 */
+@supports (field-sizing: content){
+  .doc-live{
+    field-sizing: content;
+    min-height:320px;
+    max-height:none;
+    overflow:hidden;
+  }
+}
