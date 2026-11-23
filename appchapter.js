@@ -172,6 +172,10 @@
     /* 正文编辑 */
     const ta = el('textarea');
     ta.className = 'ce-body';
+    /* 固定高度、内部滚动，避免 iOS 布局重算时整页跳 */
+    if (window.AUTOFIT && AUTOFIT.supportsFieldSizing) {
+      ta.style.overflow = 'auto';
+    }
     ta.placeholder = '在这里写，或从右边载入正文…';
     ta.value = c.body || '';
     ta.oninput = () => {
